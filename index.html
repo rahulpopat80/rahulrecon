@@ -79,6 +79,18 @@
                     <button id="btn-export-reconciled" class="btn btn-success" disabled>
                         <i data-lucide="file-check"></i> રીકન્સાઇલ ડાઉનલોડ (Excel)
                     </button>
+                    <div style="border-top: 1px dashed rgba(255,255,255,0.1); margin: 4px 0;"></div>
+                    <!-- Firebase Cloud Actions -->
+                    <button id="btn-sync-firebase" class="btn" style="background-color: #f59e0b; color: #fff; border: none;">
+                        <i data-lucide="cloud-upload"></i> ફાયરબેઝમાં સેવ કરો (Cloud Save)
+                    </button>
+                    <button id="btn-load-firebase" class="btn" style="background-color: #0284c7; color: #fff; border: none;">
+                        <i data-lucide="cloud-download"></i> ફાયરબેઝમાંથી લોડ કરો (Cloud Fetch)
+                    </button>
+                    <button id="btn-download-firebase-backup" class="btn" style="background-color: #0d9488; color: #fff; border: none;">
+                        <i data-lucide="file-json"></i> ફાયરબેઝ બેકઅપ ડાઉનલોડ (JSON)
+                    </button>
+                    <div style="border-top: 1px dashed rgba(255,255,255,0.1); margin: 4px 0;"></div>
                     <button id="btn-start-new-day" class="btn" style="background-color: #8b5cf6; color: #fff; border: none;">
                         <i data-lucide="calendar-plus"></i> નવો દિવસ શરૂ કરો / New Day
                     </button>
@@ -92,7 +104,7 @@
             </nav>
             
             <div class="sidebar-footer">
-                <p>વર્ઝન 2.9.0 &copy; 2026</p>
+                <p>વર્ઝન 3.0.0 &copy; 2026 (Firebase Integrated)</p>
             </div>
         </aside>
 
@@ -101,11 +113,11 @@
             <header class="top-header">
                 <div class="header-welcome">
                     <h2>બેંક રીકન્સિલેશન સિસ્ટમ</h2>
-                    <p>HDFC, 345051, 3493 અને 3496 સ્ટેટમેન્ટ્સ મર્જર અને રીકન્સિલેશન</p>
+                    <p>HDFC, 345051, 3493 અને 3496 સ્ટેટમેન્ટ્સ મર્જર અને રીકન્સિલેશન (Firebase Cloud Backend)</p>
                 </div>
-                <div class="user-status">
-                    <span class="badge badge-online">
-                        <span class="dot"></span> સક્રિય / System Ready
+                <div class="user-status" style="display: flex; gap: 8px; align-items: center;">
+                    <span id="firebase-status-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">
+                        <span class="dot"></span> 🔥 Firebase Ready
                     </span>
                 </div>
             </header>
@@ -399,16 +411,18 @@
         </main>
     </div>
 
-    <!-- Toast Notifications -->
-    <div id="toast-container" class="toast-container"></div>
-
     <!-- PapaParse CDN for parsing CSV -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
     <!-- styled-xlsx CDN for generating XLSX Excel sheets with styles -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
     
+    <!-- Firebase JS SDKs (Compat version for standard script integration) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics-compat.js"></script>
+    
     <!-- App JavaScript Logic -->
-    <script src="app.js?v=2.9.4"></script>
+    <script src="app.js?v=3.0.0"></script>
 </body>
 </html>

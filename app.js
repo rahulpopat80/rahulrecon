@@ -142,6 +142,22 @@ function initApp() {
     btnReset.addEventListener('click', resetApp);
     btnBulkAction.addEventListener('click', runBulkAction);
     
+    // Firebase Cloud Buttons
+    const btnSyncFirebase = document.getElementById('btn-sync-firebase');
+    if (btnSyncFirebase) {
+        btnSyncFirebase.addEventListener('click', () => saveStateToFirebase(true));
+    }
+    
+    const btnLoadFirebase = document.getElementById('btn-load-firebase');
+    if (btnLoadFirebase) {
+        btnLoadFirebase.addEventListener('click', () => loadStateFromFirebase(false));
+    }
+    
+    const btnDownloadFirebaseBackup = document.getElementById('btn-download-firebase-backup');
+    if (btnDownloadFirebaseBackup) {
+        btnDownloadFirebaseBackup.addEventListener('click', downloadFirebaseBackup);
+    }
+    
     const btnNpciPending = document.getElementById('btn-npci-pending');
     if (btnNpciPending) {
         btnNpciPending.addEventListener('click', runNpciPendingAction);
@@ -203,6 +219,9 @@ function initApp() {
     
     // Load persisted state if exists
     loadStateFromLocalStorage();
+    
+    // Initialize Firebase Cloud Service
+    initFirebase();
     
     // Check if new day backup exists to show/hide Undo button
     if (localStorage.getItem('recon_new_day_backup')) {
@@ -688,14 +707,222 @@ function saveStateToLocalStorage() {
             filesMetaToSave[key] = {
                 loaded: state.files[key].loaded,
                 balance: state.files[key].balance,
+                previousBalance: state.files[key].previousBalance || 0,
                 rawName: state.files[key].rawName,
                 rowCount: state.files[key].data ? state.files[key].data.length : 0
             };
         }
         localStorage.setItem('recon_files_meta', JSON.stringify(filesMetaToSave));
+        
+        // Auto sync state to Firebase Cloud Storage
+        if (typeof saveStateToFirebase === 'function') {
+            saveStateToFirebase(false);
+        }
     } catch (e) {
         console.error("[Recon] LocalStorage save failed: ", e);
         showToast("લોકલ સ્ટોરેજ સેવ કરવામાં ભૂલ આવી (શક્ય છે કે સ્ટોરેજ ફૂલ છે).", 'warning');
+    }
+}
+
+// ------------------------------------------------------------------
+// FIREBASE CLOUD BACKEND SERVICE INTEGRATION
+// ------------------------------------------------------------------
+const firebaseConfig = {
+  apiKey: "AIzaSyBEqZS_NZERxw2JIEcpLymo734vU5SPP9A",
+  authDomain: "rahulrecon-a5083.firebaseapp.com",
+  projectId: "rahulrecon-a5083",
+  storageBucket: "rahulrecon-a5083.firebasestorage.app",
+  messagingSenderId: "432963671020",
+  appId: "1:432963671020:web:bf3e76aaf692a80c2226c9",
+  measurementId: "G-GTTSS1CM96"
+};
+
+let db = null;
+let analytics = null;
+let firebaseInitialized = false;
+
+function initFirebase() {
+    try {
+        if (typeof firebase !== 'undefined') {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            if (firebase.analytics) {
+                try { analytics = firebase.analytics(); } catch(e) {}
+            }
+            firebaseInitialized = true;
+            console.log("[Firebase] Successfully initialized Firebase Firestore & Analytics.");
+            updateFirebaseUIStatus(true, 'Firebase Synced');
+            
+            // Auto-load initial state from Firebase if localStorage is empty
+            const savedMergedData = localStorage.getItem('recon_merged_data');
+            if (!savedMergedData || JSON.parse(savedMergedData).length === 0) {
+                loadStateFromFirebase(true); // silent load on startup if local storage empty
+            }
+        } else {
+            console.warn("[Firebase] Firebase SDK scripts not loaded.");
+            updateFirebaseUIStatus(false, 'Offline Mode');
+        }
+    } catch (err) {
+        console.error("[Firebase] Initialization error:", err);
+        updateFirebaseUIStatus(false, 'Firebase Offline');
+    }
+}
+
+let firebaseSaveTimeout = null;
+
+function saveStateToFirebase(showNotification = false) {
+    if (!firebaseInitialized || !db) {
+        if (showNotification) showToast("ફાયરબેઝ કનેક્ટેડ નથી (ઓફલાઈન મોડ).", "warning");
+        return;
+    }
+    
+    if (firebaseSaveTimeout) {
+        clearTimeout(firebaseSaveTimeout);
+    }
+    
+    firebaseSaveTimeout = setTimeout(() => {
+        const payload = {
+            currentDate: state.currentDate,
+            similarityThreshold: state.similarityThreshold,
+            dateTolerance: state.dateTolerance,
+            matchGroupCounter: state.matchGroupCounter,
+            files: state.files,
+            mergedData: state.mergedData,
+            lastUpdatedFormatted: new Date().toLocaleString('en-IN')
+        };
+        
+        updateFirebaseUIStatus(true, 'Saving to Cloud...');
+        
+        db.collection("recon_snapshots").doc("current_state").set(payload)
+            .then(() => {
+                console.log("[Firebase] State saved successfully to Firestore.");
+                updateFirebaseUIStatus(true, 'Firebase Synced');
+                if (showNotification) {
+                    showToast("તમામ ડેટા ફાયરબેઝ (Cloud) માં સફળતાપૂર્વક સેવ થઈ ગયો છે.", "success");
+                }
+                
+                // Also save daily history snapshot
+                if (state.currentDate) {
+                    db.collection("recon_daily_history").doc(state.currentDate).set(payload).catch(e => console.warn(e));
+                }
+            })
+            .catch((error) => {
+                console.error("[Firebase] Error saving state:", error);
+                updateFirebaseUIStatus(false, 'Save Failed');
+                if (showNotification) {
+                    showToast("ફાયરબેઝમાં સેવ કરતી વખતે ભૂલ આવી: " + error.message, "error");
+                }
+            });
+    }, 1000);
+}
+
+function loadStateFromFirebase(silent = false) {
+    if (!firebaseInitialized || !db) {
+        if (!silent) showToast("ફાયરબેઝ કનેક્ટેડ નથી!", "error");
+        return;
+    }
+    
+    updateFirebaseUIStatus(true, 'Fetching Cloud Data...');
+    
+    db.collection("recon_snapshots").doc("current_state").get()
+        .then((doc) => {
+            if (doc.exists) {
+                const data = doc.data();
+                if (data.mergedData && Array.isArray(data.mergedData)) {
+                    state.mergedData = data.mergedData;
+                    state.currentDate = data.currentDate || state.currentDate;
+                    state.matchGroupCounter = data.matchGroupCounter || 0;
+                    if (data.files) state.files = data.files;
+                    
+                    saveStateToLocalStorage();
+                    refreshLedgerCounts();
+                    updateBRSLiveWidget();
+                    renderTable();
+                    
+                    updateFirebaseUIStatus(true, 'Firebase Synced');
+                    if (!silent) {
+                        showToast(`ફાયરબેઝમાંથી ${state.mergedData.length} વ્યવહારો અને સ્ટેટસ સફળતાપૂર્વક લોડ થયા.`, "success");
+                    }
+                } else {
+                    updateFirebaseUIStatus(true, 'Firebase Ready');
+                    if (!silent) showToast("ફાયરબેઝમાં કોઈ જૂનો ડેટા મળ્યો નથી.", "info");
+                }
+            } else {
+                updateFirebaseUIStatus(true, 'Firebase Ready');
+                if (!silent) showToast("ફાયરબેઝમાં કોઈ ડેટા સેવ કરેલ નથી.", "info");
+            }
+        })
+        .catch((error) => {
+            console.error("[Firebase] Error fetching state:", error);
+            updateFirebaseUIStatus(false, 'Fetch Failed');
+            if (!silent) showToast("ફાયરબેઝમાંથી ડેટા લાવવામાં ભૂલ આવી: " + error.message, "error");
+        });
+}
+
+function downloadFirebaseBackup() {
+    if (!firebaseInitialized || !db) {
+        showToast("ફાયરબેઝ કનેક્ટેડ નથી. લોકલ ડેટા ડાઉનલોડ થાય છે...", "info");
+        const jsonStr = JSON.stringify(state, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Local_Recon_Backup_${state.currentDate}.json`;
+        a.click();
+        return;
+    }
+    
+    showToast("ફાયરબેઝમાંથી બેકઅપ ફાઈલ ડાઉનલોડ થઈ રહી છે...", "info");
+    
+    db.collection("recon_snapshots").doc("current_state").get()
+        .then((doc) => {
+            let backupObj = {};
+            if (doc.exists) {
+                backupObj = doc.data();
+            } else {
+                backupObj = {
+                    currentDate: state.currentDate,
+                    files: state.files,
+                    mergedData: state.mergedData,
+                    matchGroupCounter: state.matchGroupCounter
+                };
+            }
+            
+            const jsonStr = JSON.stringify(backupObj, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const dateStr = state.currentDate || new Date().toISOString().slice(0, 10);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Firebase_Recon_Backup_${dateStr}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showToast("ફાયરબેઝ ડેટા બેકઅપ JSON ફાઈલ સફળતાપૂર્વક ડાઉનલોડ થઈ ગઈ.", "success");
+        })
+        .catch((err) => {
+            console.error("[Firebase] Download error:", err);
+            showToast("ફાયરબેઝ ડાઉનલોડમાં એરર આવી: " + err.message, "error");
+        });
+}
+
+function updateFirebaseUIStatus(online, text) {
+    const badge = document.getElementById('firebase-status-badge');
+    if (!badge) return;
+    
+    if (online) {
+        badge.style.background = 'rgba(16, 185, 129, 0.15)';
+        badge.style.color = '#10b981';
+        badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+        badge.innerHTML = `<span class="dot"></span> 🔥 ${text}`;
+    } else {
+        badge.style.background = 'rgba(239, 68, 68, 0.15)';
+        badge.style.color = '#ef4444';
+        badge.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+        badge.innerHTML = `<span class="dot" style="background:#ef4444;"></span> ⚠️ ${text}`;
     }
 }
 
