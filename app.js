@@ -694,6 +694,9 @@ function saveStateToLocalStorage() {
     try {
         localStorage.setItem('recon_merged_data', JSON.stringify(state.mergedData));
         localStorage.setItem('recon_match_counter', state.matchGroupCounter.toString());
+        if (state.currentDate) {
+            localStorage.setItem('recon_current_date', state.currentDate);
+        }
         
         // Strip large raw data arrays to keep localStorage footprint under 200KB
         const filesMetaToSave = {};
@@ -825,7 +828,10 @@ function loadStateFromFirebase(silent = false) {
                 const data = doc.data();
                 if (data.mergedData && Array.isArray(data.mergedData)) {
                     state.mergedData = data.mergedData;
-                    state.currentDate = data.currentDate || state.currentDate;
+                    if (data.currentDate) {
+                        state.currentDate = data.currentDate;
+                        if (currentDateInput) currentDateInput.value = data.currentDate;
+                    }
                     state.matchGroupCounter = data.matchGroupCounter || 0;
                     if (data.files) state.files = data.files;
                     
@@ -1431,6 +1437,12 @@ function calculateCurrentDifference() {
 
 // Restore state from localStorage
 function loadStateFromLocalStorage() {
+    const savedDate = localStorage.getItem('recon_current_date');
+    if (savedDate) {
+        state.currentDate = savedDate;
+        if (currentDateInput) currentDateInput.value = savedDate;
+    }
+
     const savedMergedData = localStorage.getItem('recon_merged_data');
     const savedMatchCounter = localStorage.getItem('recon_match_counter');
     const savedFilesMeta = localStorage.getItem('recon_files_meta');
