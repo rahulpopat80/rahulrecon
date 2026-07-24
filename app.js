@@ -737,6 +737,7 @@ const firebaseConfig = {
 let db = null;
 let analytics = null;
 let firebaseInitialized = false;
+let isSelfSaving = false;
 
 function initFirebase() {
     try {
@@ -747,14 +748,14 @@ function initFirebase() {
                 try { analytics = firebase.analytics(); } catch(e) {}
             }
             firebaseInitialized = true;
-            console.log("[Firebase] Successfully initialized Firebase Firestore & Analytics.");
-            updateFirebaseUIStatus(true, 'Firebase Synced');
+            console.log("[Firebase] Successfully initialized Firebase Cloud Service.");
+            updateFirebaseUIStatus(true, '☁️ Cloud Synced');
             
-            // Auto-load initial state from Firebase if localStorage is empty
-            const savedMergedData = localStorage.getItem('recon_merged_data');
-            if (!savedMergedData || JSON.parse(savedMergedData).length === 0) {
-                loadStateFromFirebase(true); // silent load on startup if local storage empty
-            }
+            // ALWAYS load latest state from Cloud on startup for multi-PC sync (Home PC <-> Bank PC)
+            loadStateFromFirebase(true);
+            
+            // Listen for live Cloud updates across multiple PCs
+            listenToCloudChanges();
         } else {
             console.warn("[Firebase] Firebase SDK scripts not loaded.");
             updateFirebaseUIStatus(false, 'Offline Mode');
@@ -763,6 +764,35 @@ function initFirebase() {
         console.error("[Firebase] Initialization error:", err);
         updateFirebaseUIStatus(false, 'Firebase Offline');
     }
+}
+
+function listenToCloudChanges() {
+    if (!firebaseInitialized || !db) return;
+    
+    db.collection("recon_snapshots").doc("current_state")
+        .onSnapshot((doc) => {
+            if (doc.exists && !isSelfSaving) {
+                const data = doc.data();
+                if (data.mergedData && Array.isArray(data.mergedData)) {
+                    state.mergedData = data.mergedData;
+                    if (data.currentDate) {
+                        state.currentDate = data.currentDate;
+                        if (currentDateInput) currentDateInput.value = data.currentDate;
+                    }
+                    state.matchGroupCounter = data.matchGroupCounter || 0;
+                    if (data.files) state.files = data.files;
+                    
+                    saveStateToLocalStorage();
+                    refreshLedgerCounts();
+                    updateBRSLiveWidget();
+                    renderTable();
+                    
+                    updateFirebaseUIStatus(true, '☁️ Cloud Synced');
+                }
+            }
+        }, (error) => {
+            console.warn("[Firebase Realtime Sync] Listener note:", error);
+        });
 }
 
 let firebaseSaveTimeout = null;
@@ -778,6 +808,7 @@ function saveStateToFirebase(showNotification = false) {
     }
     
     firebaseSaveTimeout = setTimeout(() => {
+        isSelfSaving = true;
         const payload = {
             currentDate: state.currentDate,
             similarityThreshold: state.similarityThreshold,
@@ -793,9 +824,10 @@ function saveStateToFirebase(showNotification = false) {
         db.collection("recon_snapshots").doc("current_state").set(payload)
             .then(() => {
                 console.log("[Firebase] State saved successfully to Firestore.");
-                updateFirebaseUIStatus(true, 'Firebase Synced');
+                updateFirebaseUIStatus(true, '☁️ Cloud Synced');
+                setTimeout(() => { isSelfSaving = false; }, 1500);
                 if (showNotification) {
-                    showToast("તમામ ડેટા ફાયરબેઝ (Cloud) માં સફળતાપૂર્વક સેવ થઈ ગયો છે.", "success");
+                    showToast("તમામ ડેટા ક્લાઉડ સર્વર પર સેવ થઈ ગયો છે.", "success");
                 }
                 
                 // Also save daily history snapshot
@@ -804,6 +836,7 @@ function saveStateToFirebase(showNotification = false) {
                 }
             })
             .catch((error) => {
+                isSelfSaving = false;
                 console.warn("[Firebase] Error saving state:", error);
                 updateFirebaseUIStatus(false, 'Cloud Perm Error');
                 if (showNotification) {
@@ -840,27 +873,27 @@ function loadStateFromFirebase(silent = false) {
                     updateBRSLiveWidget();
                     renderTable();
                     
-                    updateFirebaseUIStatus(true, 'Firebase Synced');
+                    updateFirebaseUIStatus(true, '☁️ Cloud Synced');
                     if (!silent) {
-                        showToast(`ફાયરબેઝમાંથી ${state.mergedData.length} વ્યવહારો અને સ્ટેટસ સફળતાપૂર્વક લોડ થયા.`, "success");
+                        showToast(`ક્લાઉડમાંથી ${state.mergedData.length} વ્યવહારો અને સ્ટેટસ સફળતાપૂર્વક લોડ થયા.`, "success");
                     }
                 } else {
-                    updateFirebaseUIStatus(true, 'System Ready');
-                    if (!silent) showToast("ફાયરબેઝમાં કોઈ જૂનો ડેટા મળ્યો નથી.", "info");
+                    updateFirebaseUIStatus(true, '☁️ Cloud Ready');
+                    if (!silent) showToast("ક્લાઉડમાં કોઈ જૂનો ડેટા મળ્યો નથી.", "info");
                 }
             } else {
-                updateFirebaseUIStatus(true, 'System Ready');
-                if (!silent) showToast("ફાયરબેઝમાં કોઈ ડેટા સેવ કરેલ નથી.", "info");
+                updateFirebaseUIStatus(true, '☁️ Cloud Ready');
+                if (!silent) showToast("ક્લાઉડમાં કોઈ ડેટા સેવ કરેલ નથી.", "info");
             }
         })
         .catch((error) => {
             console.warn("[Firebase] Error fetching state:", error);
             if (silent) {
                 // Silent startup fallback to local mode
-                updateFirebaseUIStatus(true, 'System Ready (Local)');
+                updateFirebaseUIStatus(true, 'System Ready');
             } else {
-                updateFirebaseUIStatus(false, 'Firestore Perm Error');
-                showToast("ફાયરબેઝ પરમિશન જરૂરી છે: Firebase Console માં Firestore Rules ચાલુ કરો.", "error");
+                updateFirebaseUIStatus(false, 'Cloud Perm Error');
+                showToast("ક્લાઉડ પરમિશન જરૂરી છે: Firebase Console માં Firestore Rules ચાલુ કરો.", "error");
             }
         });
 }
