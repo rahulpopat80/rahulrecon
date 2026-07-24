@@ -236,6 +236,14 @@ function initApp() {
 
 // Show custom toast notification
 function showToast(message, type = 'success') {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+    
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     
@@ -247,8 +255,10 @@ function showToast(message, type = 'success') {
         <i data-lucide="${iconName}"></i>
         <span>${message}</span>
     `;
-    toastContainer.appendChild(toast);
-    lucide.createIcons({ attrs: { class: 'toast-icon' } });
+    container.appendChild(toast);
+    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        try { lucide.createIcons({ attrs: { class: 'toast-icon' } }); } catch(e) {}
+    }
     
     setTimeout(() => {
         toast.style.animation = 'fadeOut 0.3s forwards';
