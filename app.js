@@ -371,6 +371,54 @@ function getAutoFlag(desc) {
     return 'DAILY';
 }
 
+// Extract date pattern from transaction description (e.g. DD/MM/YYYY, DD-MM-YYYY, DD-MMM-YYYY, DD/MM/YY, etc.)
+function extractDateFromDescription(description, fallbackDate) {
+    if (!description) return fallbackDate || '';
+    const str = String(description);
+    
+    // Pattern 1: DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY (e.g. 05/07/2026, 05-07-2026, 05.07.2026)
+    const matchFullDate = str.match(/\b([0-3]?\d)[\/\.\-]([0-1]?\d)[\/\.\-](20\d{2})\b/);
+    if (matchFullDate) {
+        const day = matchFullDate[1].padStart(2, '0');
+        const month = matchFullDate[2].padStart(2, '0');
+        const year = matchFullDate[3];
+        return `${day}/${month}/${year}`;
+    }
+    
+    // Pattern 2: DD/MM/YY or DD-MM-YY or DD.MM.YY (e.g. 05/07/26, 05-07-26)
+    const matchShortYear = str.match(/\b([0-3]?\d)[\/\.\-]([0-1]?\d)[\/\.\-](\d{2})\b/);
+    if (matchShortYear) {
+        const day = matchShortYear[1].padStart(2, '0');
+        const month = matchShortYear[2].padStart(2, '0');
+        const year = '20' + matchShortYear[3];
+        return `${day}/${month}/${year}`;
+    }
+    
+    // Pattern 3: DD-MMM-YYYY or DD/MMM/YYYY or DD-MMM-YY (e.g. 05-JUL-2026, 05-JUL-26)
+    const monthsMap = {
+        'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04', 'MAY': '05', 'JUN': '06',
+        'JUL': '07', 'AUG': '08', 'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
+    };
+    const matchTextMonth = str.match(/\b([0-3]?\d)[\/\.\-]([A-Za-z]{3})[\/\.\-](20\d{2}|\d{2})\b/i);
+    if (matchTextMonth) {
+        const day = matchTextMonth[1].padStart(2, '0');
+        const monthStr = matchTextMonth[2].toUpperCase();
+        let year = matchTextMonth[3];
+        if (year.length === 2) year = '20' + year;
+        if (monthsMap[monthStr]) {
+            return `${day}/${monthsMap[monthStr]}/${year}`;
+        }
+    }
+    
+    // Pattern 4: 8-digit date string DDMMYYYY (e.g. 05072026)
+    const matchDigits = str.match(/\b([0-3]\d)(0[1-9]|1[0-2])(20\d{2})\b/);
+    if (matchDigits) {
+        return `${matchDigits[1]}/${matchDigits[2]}/${matchDigits[3]}`;
+    }
+
+    return fallbackDate || '';
+}
+
 // Update FLAG value in state on inline edit
 function updateFlagValue(itemId, newValue) {
     const item = state.mergedData.find(t => t.id === itemId);
@@ -2019,7 +2067,11 @@ function mergeFiles() {
             }
             
             const dateObj = parseDateString(dateStr);
-            const actualDate = formatDateOnly(dateObj);
+            let actualDate = formatDateOnly(dateObj);
+            const autoFlag = getAutoFlag(desc);
+            if (autoFlag === 'NPCI') {
+                actualDate = extractDateFromDescription(desc, actualDate);
+            }
             const daysDiff = dateObj ? calculateDaysDifference(todayObj, dateObj) : '';
             
             merged.push({
@@ -2031,7 +2083,7 @@ function mergeFiles() {
                 creditTrn: credit,
                 debitTrn: debit,
                 refNo: refNo,
-                flag: getAutoFlag(desc),
+                flag: autoFlag,
                 day: daysDiff,
                 count: 0,
                 reconciled: false,
@@ -2058,7 +2110,11 @@ function mergeFiles() {
                 if (credit === 0 && debit === 0 && desc && desc.toLowerCase().includes('balance')) return;
                 
                 const dateObj = parseDateString(dateStr);
-                const actualDate = formatDateOnly(dateObj);
+                let actualDate = formatDateOnly(dateObj);
+                const autoFlag = getAutoFlag(desc);
+                if (autoFlag === 'NPCI') {
+                    actualDate = extractDateFromDescription(desc, actualDate);
+                }
                 const daysDiff = dateObj ? calculateDaysDifference(todayObj, dateObj) : '';
                 
                 merged.push({
@@ -2069,7 +2125,7 @@ function mergeFiles() {
                     actualDate: actualDate,
                     creditTrn: credit,
                     debitTrn: debit,
-                    flag: getAutoFlag(desc),
+                    flag: autoFlag,
                     day: daysDiff,
                     count: 0,
                     reconciled: false,
@@ -2085,7 +2141,7 @@ function mergeFiles() {
             const dateStr = String(getRowValue(row, ['DATE', 'Date']) || '').trim();
             const desc = String(getRowValue(row, ['DISCRIPTION', 'Description', 'Narration']) || '').trim();
             const type = String(getRowValue(row, ['TYPE', 'Type']) || '').trim().toUpperCase();
-            const actualDate = String(getRowValue(row, ['ACTUAL DATE', 'ActualDate']) || '').trim();
+            const rawActualDate = String(getRowValue(row, ['ACTUAL DATE', 'ActualDate']) || '').trim();
             const creditStr = String(getRowValue(row, ['CREDIT TRN', 'Credit']) || '').replace(/,/g, '').trim();
             const debitStr = String(getRowValue(row, ['DEBIT TRN', 'Debit']) || '').replace(/,/g, '').trim();
             
@@ -2095,6 +2151,12 @@ function mergeFiles() {
             const debit = parseFloat(debitStr) || 0;
             
             const flagStr = String(getRowValue(row, ['FLAG', 'Flag']) || '').trim();
+            const autoFlag = flagStr || getAutoFlag(desc);
+            
+            let actualDate = rawActualDate || dateStr;
+            if (autoFlag === 'NPCI') {
+                actualDate = extractDateFromDescription(desc, actualDate);
+            }
             
             merged.push({
                 id: 'history_' + Math.random().toString(36).substr(2, 9),
@@ -3231,8 +3293,12 @@ function renderNPCIPivotTable() {
     if (searchFilters) searchFilters.style.display = 'none';
     if (bulkActionsContainer) bulkActionsContainer.style.display = 'none';
     
-    // Group all NPCI transactions (both reconciled and pending)
-    const npciTxns = state.mergedData.filter(item => item.flag && item.flag.toUpperCase() === 'NPCI');
+    if (!state.openNpciDateDetails) {
+        state.openNpciDateDetails = new Set();
+    }
+    
+    // Group ONLY pending (unreconciled) NPCI transactions for NPCI Summary
+    const npciTxns = state.mergedData.filter(item => item.flag && item.flag.toUpperCase() === 'NPCI' && !item.reconciled);
     
     const npciByDate = {};
     npciTxns.forEach(item => {
@@ -3270,7 +3336,7 @@ function renderNPCIPivotTable() {
             <tr>
                 <td colspan="8" class="table-empty-state">
                     <i data-lucide="file-warning"></i>
-                    <p>કોઈ NPCI વ્યવહારો મળ્યા નથી.</p>
+                    <p>કોઈ પેન્ડીંગ NPCI વ્યવહારો મળ્યા નથી.</p>
                 </td>
             </tr>
         `;
@@ -3278,6 +3344,7 @@ function renderNPCIPivotTable() {
         dates.forEach((d, idx) => {
             const txns = npciByDate[d];
             const dateId = 'npci_date_' + idx;
+            const isExpanded = state.openNpciDateDetails.has(d) || state.openNpciDateDetails.has(dateId);
             
             const hdfcSide = txns.filter(item => getFileCategory(item) === 'HDFC');
             const glSide = txns.filter(item => getFileCategory(item) !== 'HDFC');
@@ -3354,8 +3421,8 @@ function renderNPCIPivotTable() {
             html += `
                 <tr style="background: ${isAllReconciled ? 'rgba(16, 185, 129, 0.03)' : 'transparent'}; border-bottom: 1px solid rgba(255,255,255,0.05);">
                     <td style="text-align: center; font-weight: 600; padding: 12px 8px;">
-                        <span style="cursor: pointer; color: #a855f7; display: inline-flex; align-items: center; gap: 4px;" onclick="toggleNpciRowDetails('${dateId}')">
-                            <i data-lucide="chevron-right" class="npci-toggle-icon-${dateId}" style="width:12px; height:12px; transition: transform 0.2s;"></i> 
+                        <span style="cursor: pointer; color: #a855f7; display: inline-flex; align-items: center; gap: 4px;" onclick="toggleNpciRowDetails('${dateId}', '${d}')">
+                            <i data-lucide="chevron-right" class="npci-toggle-icon-${dateId}" style="width:12px; height:12px; transition: transform 0.2s; transform: ${isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'};"></i> 
                             ${d}
                         </span>
                     </td>
@@ -3374,7 +3441,7 @@ function renderNPCIPivotTable() {
                     </td>
                 </tr>
                 <!-- Sub-table row containing detailed NPCI transactions -->
-                <tr id="npci-details-${dateId}" style="display: none; background: rgba(255,255,255,0.015);">
+                <tr id="npci-details-${dateId}" style="display: ${isExpanded ? 'table-row' : 'none'}; background: rgba(255,255,255,0.015);">
                     <td colspan="8" style="padding: 12px 24px;">
                         <div style="border-left: 3px solid #a855f7; padding-left: 16px; background: rgba(255,255,255,0.005); padding-top: 8px; padding-bottom: 8px; border-radius: 0 8px 8px 0;">
                             <h4 style="font-size: 11px; margin-bottom: 8px; color: #a855f7; font-weight: 700; display: flex; align-items: center; gap: 4px;">
@@ -3410,7 +3477,7 @@ function renderNPCIPivotTable() {
     `;
     
     tableBody.innerHTML = html;
-    entriesCount.textContent = `કુલ ${dates.length} તારીખોના NPCI વ્યવહારોનું પીવોટ ટેબલ`;
+    entriesCount.textContent = `કુલ ${dates.length} તારીખોના પેન્ડીંગ NPCI વ્યવહારોનું પીવોટ ટેબલ`;
     paginationControls.innerHTML = '';
     lucide.createIcons();
     updateBulkActionButtons();
@@ -3457,7 +3524,7 @@ function toggleNpciDateSelection(dateStr) {
         state.selectedNpciDates = new Set();
     }
     
-    const txns = state.mergedData.filter(item => item.actualDate === dateStr && item.flag && item.flag.toUpperCase() === 'NPCI');
+    const txns = state.mergedData.filter(item => item.actualDate === dateStr && item.flag && item.flag.toUpperCase() === 'NPCI' && !item.reconciled);
     
     if (state.selectedNpciDates.has(dateStr)) {
         state.selectedNpciDates.delete(dateStr);
@@ -3494,17 +3561,23 @@ function toggleNpciDateSelection(dateStr) {
 }
 
 // Toggle visibility of detailed transactions inside NPCI summary pivot table
-function toggleNpciRowDetails(dateId) {
+function toggleNpciRowDetails(dateId, dateStr) {
+    if (!state.openNpciDateDetails) {
+        state.openNpciDateDetails = new Set();
+    }
+    
+    const key = dateStr || dateId;
     const row = document.getElementById(`npci-details-${dateId}`);
     const icon = document.querySelector(`.npci-toggle-icon-${dateId}`);
-    if (row) {
-        if (row.style.display === 'none') {
-            row.style.display = 'table-row';
-            if (icon) icon.style.transform = 'rotate(90deg)';
-        } else {
-            row.style.display = 'none';
-            if (icon) icon.style.transform = 'rotate(0deg)';
-        }
+    
+    if (state.openNpciDateDetails.has(key)) {
+        state.openNpciDateDetails.delete(key);
+        if (row) row.style.display = 'none';
+        if (icon) icon.style.transform = 'rotate(0deg)';
+    } else {
+        state.openNpciDateDetails.add(key);
+        if (row) row.style.display = 'table-row';
+        if (icon) icon.style.transform = 'rotate(90deg)';
     }
 }
 
@@ -3521,18 +3594,29 @@ function updateNPCIActualDate(itemId, newDate) {
     }
     
     const formattedDate = formatDateToSlash(parsedDate);
+    const oldDate = item.actualDate;
     
     // Check if anything actually changed
-    if (item.actualDate === formattedDate) {
+    if (oldDate === formattedDate) {
         return;
     }
     
     item.actualDate = formattedDate;
     
+    if (!state.openNpciDateDetails) {
+        state.openNpciDateDetails = new Set();
+    }
+    
+    // Ensure both old and new date detail rows stay open so user sees the entry move!
+    if (oldDate) state.openNpciDateDetails.add(oldDate);
+    state.openNpciDateDetails.add(formattedDate);
+    
     saveStateToLocalStorage();
     refreshLedgerCounts();
     updateBRSLiveWidget();
     renderTable();
+    
+    showToast(`વ્યવહારની Actual Date બદલીને ${formattedDate} ના લિસ્ટમાં મોકલવામાં આવી.`, 'info');
 }
 
 // Update FLAG for a specific NPCI transaction
@@ -3548,6 +3632,15 @@ function updateNPCIFlag(itemId, newFlag) {
     }
     
     item.flag = cleanFlag || 'DAILY';
+    
+    if (item.flag === 'NPCI') {
+        const extracted = extractDateFromDescription(item.description, item.actualDate);
+        if (extracted) {
+            item.actualDate = extracted;
+            if (!state.openNpciDateDetails) state.openNpciDateDetails = new Set();
+            state.openNpciDateDetails.add(extracted);
+        }
+    }
     
     saveStateToLocalStorage();
     refreshLedgerCounts();
