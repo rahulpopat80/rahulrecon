@@ -142,22 +142,6 @@ function initApp() {
     btnReset.addEventListener('click', resetApp);
     btnBulkAction.addEventListener('click', runBulkAction);
     
-    // Firebase Cloud Buttons
-    const btnSyncFirebase = document.getElementById('btn-sync-firebase');
-    if (btnSyncFirebase) {
-        btnSyncFirebase.addEventListener('click', () => saveStateToFirebase(true));
-    }
-    
-    const btnLoadFirebase = document.getElementById('btn-load-firebase');
-    if (btnLoadFirebase) {
-        btnLoadFirebase.addEventListener('click', () => loadStateFromFirebase(false));
-    }
-    
-    const btnDownloadFirebaseBackup = document.getElementById('btn-download-firebase-backup');
-    if (btnDownloadFirebaseBackup) {
-        btnDownloadFirebaseBackup.addEventListener('click', downloadFirebaseBackup);
-    }
-    
     const btnNpciPending = document.getElementById('btn-npci-pending');
     if (btnNpciPending) {
         btnNpciPending.addEventListener('click', runNpciPendingAction);

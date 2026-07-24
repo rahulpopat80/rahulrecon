@@ -79,18 +79,6 @@
                     <button id="btn-export-reconciled" class="btn btn-success" disabled>
                         <i data-lucide="file-check"></i> રીકન્સાઇલ ડાઉનલોડ (Excel)
                     </button>
-                    <div style="border-top: 1px dashed rgba(255,255,255,0.1); margin: 4px 0;"></div>
-                    <!-- Firebase Cloud Actions -->
-                    <button id="btn-sync-firebase" class="btn" style="background-color: #f59e0b; color: #fff; border: none;">
-                        <i data-lucide="cloud-upload"></i> ફાયરબેઝમાં સેવ કરો (Cloud Save)
-                    </button>
-                    <button id="btn-load-firebase" class="btn" style="background-color: #0284c7; color: #fff; border: none;">
-                        <i data-lucide="cloud-download"></i> ફાયરબેઝમાંથી લોડ કરો (Cloud Fetch)
-                    </button>
-                    <button id="btn-download-firebase-backup" class="btn" style="background-color: #0d9488; color: #fff; border: none;">
-                        <i data-lucide="file-json"></i> ફાયરબેઝ બેકઅપ ડાઉનલોડ (JSON)
-                    </button>
-                    <div style="border-top: 1px dashed rgba(255,255,255,0.1); margin: 4px 0;"></div>
                     <button id="btn-start-new-day" class="btn" style="background-color: #8b5cf6; color: #fff; border: none;">
                         <i data-lucide="calendar-plus"></i> નવો દિવસ શરૂ કરો / New Day
                     </button>
@@ -104,20 +92,27 @@
             </nav>
             
             <div class="sidebar-footer">
-                <p>વર્ઝન 3.0.0 &copy; 2026 (Firebase Integrated)</p>
+                <p>વર્ઝન 3.0.3 &copy; 2026</p>
             </div>
         </aside>
 
         <!-- Main Content Area -->
         <main class="main-content">
-            <header class="top-header">
-                <div class="header-welcome">
+            <header class="top-header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+                <div class="header-welcome" style="flex: 1;">
                     <h2>બેંક રીકન્સિલેશન સિસ્ટમ</h2>
-                    <p>HDFC, 345051, 3493 અને 3496 સ્ટેટમેન્ટ્સ મર્જર અને રીકન્સિલેશન (Firebase Cloud Backend)</p>
+                    <p>HDFC, 345051, 3493 અને 3496 સ્ટેટમેન્ટ્સ મર્જર અને રીકન્સિલેશન</p>
                 </div>
-                <div class="user-status" style="display: flex; gap: 8px; align-items: center;">
+                
+                <div class="header-developer-branding" style="flex: 1; text-align: center;">
+                    <span style="font-size: 1.45rem; font-weight: 800; background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 0.8px; text-shadow: 0 0 20px rgba(56, 189, 248, 0.3);">
+                        Developed By : Rahul Popat
+                    </span>
+                </div>
+                
+                <div class="user-status" style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex: 1;">
                     <span id="firebase-status-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">
-                        <span class="dot"></span> 🔥 Firebase Ready
+                        <span class="dot"></span> ☁️ Cloud Synced
                     </span>
                 </div>
             </header>
