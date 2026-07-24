@@ -1,0 +1,11 @@
+Meta row 1
+Meta row 2
+Meta row 3
+Meta row 4
+Meta row 5
+Meta row 6
+POSTDATE,USERNARRATION,CreditAmount,Debitamount,Textbox81
+11/07/2026,Consulting Fee,25000.00,0.00,105000.00CR
+14/07/2026,Electricity refund,5000.00,0.00,110000.00CR
+17/07/2026,Software Subscription,0.00,450.00,109550.00CR
+20/07/2026,Final Balance,,,109550.00CR

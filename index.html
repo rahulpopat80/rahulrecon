@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>બેંક રીકન્સિલેશન સિસ્ટમ | Bank Reconciliation System</title>
+    
+    <!-- Google Fonts: Outfit & Noto Sans Gujarati -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+Gujarati:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar / Configuration Panel -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <i data-lucide="scale" class="logo-icon"></i>
+                <div class="logo-text">
+                    <h1>રીકન્સિલ</h1>
+                    <span>RECONCILE PRO (V2.9)</span>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <!-- Step 1: Upload Settings -->
+                <div class="nav-section">
+                    <span class="nav-section-title">સેટિંગ્સ / Settings</span>
+                    
+                    <div class="control-group">
+                        <label for="current-date">
+                            <i data-lucide="calendar"></i> આજની તારીખ (Current Date)
+                        </label>
+                        <input type="date" id="current-date" value="2026-07-20">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label for="similarity-threshold">
+                            <i data-lucide="percent"></i> વર્ણન સમાનતા (Similarity Threshold)
+                            <span id="threshold-val">60%</span>
+                        </label>
+                        <input type="range" id="similarity-threshold" min="0" max="100" value="60">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="date-tolerance">
+                            <i data-lucide="calendar-range"></i> તારીખ તફાવત (Date Tolerance - Days)
+                            <span id="tolerance-val">7 દિવસ</span>
+                        </label>
+                        <input type="range" id="date-tolerance" min="0" max="15" value="7">
+                    </div>
+                </div>
+                
+                <!-- Live BRS Reconciliation Status -->
+                <div class="nav-section BRS-widget-section" id="brs-live-widget" style="display: none; background: rgba(168, 85, 247, 0.04); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 15px; margin-top: 15px;">
+                    <span class="nav-section-title" style="margin-bottom: 8px; font-weight: 700; color: #a855f7; display: flex; align-items: center; gap: 6px;">
+                        <i data-lucide="calculator" style="width: 14px; height: 14px;"></i> BRS લાઇવ મેળવણી સ્ટેટસ
+                    </span>
+                    <div id="brs-live-table-container"></div>
+                    <div id="brs-success-alert" style="display: none; align-items: center; gap: 6px; color: var(--success); font-weight: 700; background: rgba(16, 185, 129, 0.1); padding: 6px; border-radius: 4px; font-size: 10px; margin-top: 8px; justify-content: center;">
+                        <i data-lucide="check-circle-2" style="width: 12px; height: 12px;"></i> મેળવણી ઓકે છે! (Recon OK)
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="nav-section action-section" style="display: flex; flex-direction: column; gap: 8px;">
+                    <button id="btn-auto-reconcile" class="btn btn-primary" disabled>
+                        <i data-lucide="sparkles"></i> ઓટો રીકન્સાઇલ કરો
+                    </button>
+                    <button id="btn-export-pending" class="btn btn-secondary" disabled>
+                        <i data-lucide="download"></i> પેન્ડીંગ ડાઉનલોડ (Excel)
+                    </button>
+                    <button id="btn-export-reconciled" class="btn btn-success" disabled>
+                        <i data-lucide="file-check"></i> રીકન્સાઇલ ડાઉનલોડ (Excel)
+                    </button>
+                    <button id="btn-start-new-day" class="btn" style="background-color: #8b5cf6; color: #fff; border: none;">
+                        <i data-lucide="calendar-plus"></i> નવો દિવસ શરૂ કરો / New Day
+                    </button>
+                    <button id="btn-undo-new-day" class="btn" style="background-color: #4b5563; color: #fff; border: none; display: none;">
+                        <i data-lucide="undo-2"></i> ભૂલથી નવો દિવસ ક્લિક થયો? Undo
+                    </button>
+                    <button id="btn-reset" class="btn btn-danger">
+                        <i data-lucide="rotate-ccw"></i> રીસેટ કરો / Reset
+                    </button>
+                </div>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <p>વર્ઝન 2.9.0 &copy; 2026</p>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-welcome">
+                    <h2>બેંક રીકન્સિલેશન સિસ્ટમ</h2>
+                    <p>HDFC, 345051, 3493 અને 3496 સ્ટેટમેન્ટ્સ મર્જર અને રીકન્સિલેશન</p>
+                </div>
+                <div class="user-status">
+                    <span class="badge badge-online">
+                        <span class="dot"></span> સક્રિય / System Ready
+                    </span>
+                </div>
+            </header>
+
+            <div class="content-body">
+                <!-- File Upload Zone -->
+                <section class="upload-section card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i data-lucide="upload-cloud"></i>
+                            <h3>ફાઇલ અપલોડ સેન્ટર / File Upload Center</h3>
+                        </div>
+                        <span class="card-subtitle">ચારેય ફાઇલો (.CSV) અથવા મેળવણી કરેલ એક્સેલ શીટ (.XLSX) અપલોડ કરો.</span>
+                    </div>
+                    <div class="upload-container">
+                        <div id="drop-zone" class="drop-zone">
+                            <div class="drop-zone-content">
+                                <i data-lucide="files" class="drop-icon"></i>
+                                <p class="drop-text">અહીં ફાઇલો ખેંચી લાવો અથવા <span>બ્રાઉઝ કરો</span></p>
+                                <span class="drop-subtext">HDFC.CSV, 345051.CSV, 3493.CSV, 3496.CSV અથવા મેળવણી કરેલ Excel (.xlsx)</span>
+                            </div>
+                            <input type="file" id="file-input" multiple accept=".csv,.xlsx,.xls" class="file-input">
+                        </div>
+                        
+                        <div class="info-alert" style="margin-top: 12px; font-size: 11.5px; display: flex; align-items: center; gap: 10px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); padding: 10px; border-radius: 8px; color: var(--text-primary);">
+                            <i data-lucide="info" style="width: 16px; height: 16px; color: #3b82f6; flex-shrink: 0;"></i>
+                            <span><strong>તફાવત શૂન્ય (0.00) કરવા માટે:</strong> મેળવણી કરેલી Excel ફાઇલ (<strong>Pending_Recon_20-07-2026.xlsx</strong>) ને આ બોક્સમાં ડ્રેગ-એન્ડ-ડ્રોપ કરીને અપલોડ કરો. સિસ્ટમ આપોઆપ જૂના રેકોર્ડ મેળવી લેશે.</span>
+                        </div>
+                        
+                        <div class="file-status-grid" style="grid-template-columns: repeat(5, 1fr);">
+                            <div class="file-status-card" id="status-hdfc" style="position: relative;">
+                                <div class="file-indicator empty"></div>
+                                <div class="file-info">
+                                    <span class="file-name">HDFC.CSV</span>
+                                    <span class="file-meta">અપલોડ બાકી છે</span>
+                                </div>
+                                <button class="clear-file-btn" onclick="event.stopPropagation(); clearFile('hdfc')" style="display: none; position: absolute; top: 8px; right: 8px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: var(--danger); border-radius: 4px; padding: 2px; cursor: pointer; align-items: center; justify-content: center; width: 20px; height: 20px;" title="ફાઇલ દૂર કરો">
+                                    <i data-lucide="trash-2" style="width: 12.5px; height: 12.5px;"></i>
+                                </button>
+                            </div>
+                            <div class="file-status-card" id="status-345051" style="position: relative;">
+                                <div class="file-indicator empty"></div>
+                                <div class="file-info">
+                                    <span class="file-name">345051.CSV</span>
+                                    <span class="file-meta">અપલોડ બાકી છે</span>
+                                </div>
+                                <button class="clear-file-btn" onclick="event.stopPropagation(); clearFile('345051')" style="display: none; position: absolute; top: 8px; right: 8px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: var(--danger); border-radius: 4px; padding: 2px; cursor: pointer; align-items: center; justify-content: center; width: 20px; height: 20px;" title="ફાઇલ દૂર કરો">
+                                    <i data-lucide="trash-2" style="width: 12.5px; height: 12.5px;"></i>
+                                </button>
+                            </div>
+                            <div class="file-status-card" id="status-3493" style="position: relative;">
+                                <div class="file-indicator empty"></div>
+                                <div class="file-info">
+                                    <span class="file-name">3493.CSV</span>
+                                    <span class="file-meta">અપલોડ બાકી છે</span>
+                                </div>
+                                <button class="clear-file-btn" onclick="event.stopPropagation(); clearFile('3493')" style="display: none; position: absolute; top: 8px; right: 8px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: var(--danger); border-radius: 4px; padding: 2px; cursor: pointer; align-items: center; justify-content: center; width: 20px; height: 20px;" title="ફાઇલ દૂર કરો">
+                                    <i data-lucide="trash-2" style="width: 12.5px; height: 12.5px;"></i>
+                                </button>
+                            </div>
+                            <div class="file-status-card" id="status-3496" style="position: relative;">
+                                <div class="file-indicator empty"></div>
+                                <div class="file-info">
+                                    <span class="file-name">3496.CSV</span>
+                                    <span class="file-meta">અપલોડ બાકી છે</span>
+                                </div>
+                                <button class="clear-file-btn" onclick="event.stopPropagation(); clearFile('3496')" style="display: none; position: absolute; top: 8px; right: 8px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: var(--danger); border-radius: 4px; padding: 2px; cursor: pointer; align-items: center; justify-content: center; width: 20px; height: 20px;" title="ફાઇલ દૂર કરો">
+                                    <i data-lucide="trash-2" style="width: 12.5px; height: 12.5px;"></i>
+                                </button>
+                            </div>
+                            <div class="file-status-card" id="status-history" style="position: relative;">
+                                <div class="file-indicator empty"></div>
+                                <div class="file-info">
+                                    <span class="file-name">PENDING_HISTORY.CSV</span>
+                                    <span class="file-meta">અપલોડ બાકી છે (વૈકલ્પિક)</span>
+                                </div>
+                                <button class="clear-file-btn" onclick="event.stopPropagation(); clearFile('history')" style="display: none; position: absolute; top: 8px; right: 8px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: var(--danger); border-radius: 4px; padding: 2px; cursor: pointer; align-items: center; justify-content: center; width: 20px; height: 20px;" title="ફાઇલ દૂર કરો">
+                                    <i data-lucide="trash-2" style="width: 12.5px; height: 12.5px;"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Balance Summary Cards -->
+                <section class="summary-section">
+                    <div class="summary-card" id="balance-card-hdfc">
+                        <div class="summary-card-inner">
+                            <div class="summary-card-info">
+                                <span class="summary-title">HDFC.CSV બેલેન્સ</span>
+                                <h3 class="summary-value" id="val-hdfc-bal">₹ 0.00</h3>
+                                <span class="summary-sub" id="sub-hdfc-bal">Closing Balance (રો 7)</span>
+                            </div>
+                            <div class="summary-icon-box">
+                                <i data-lucide="wallet"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="summary-card" id="balance-card-345051">
+                        <div class="summary-card-inner">
+                            <div class="summary-card-info">
+                                <span class="summary-title">345051.CSV બેલેન્સ</span>
+                                <h3 class="summary-value" id="val-345051-bal">₹ 0.00</h3>
+                                <span class="summary-sub" id="sub-345051-bal">Textbox81 (છેલ્લી રો)</span>
+                            </div>
+                            <div class="summary-icon-box">
+                                <i data-lucide="credit-card"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="summary-card" id="balance-card-3493">
+                        <div class="summary-card-inner">
+                            <div class="summary-card-info">
+                                <span class="summary-title">3493.CSV બેલેન્સ</span>
+                                <h3 class="summary-value" id="val-3493-bal">₹ 0.00</h3>
+                                <span class="summary-sub" id="sub-3493-bal">Textbox81 (છેલ્લી રો)</span>
+                            </div>
+                            <div class="summary-icon-box">
+                                <i data-lucide="piggy-bank"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="summary-card" id="balance-card-3496">
+                        <div class="summary-card-inner">
+                            <div class="summary-card-info">
+                                <span class="summary-title">3496.CSV બેલેન્સ</span>
+                                <h3 class="summary-value" id="val-3496-bal">₹ 0.00</h3>
+                                <span class="summary-sub" id="sub-3496-bal">Textbox81 (છેલ્લી રો)</span>
+                            </div>
+                            <div class="summary-icon-box">
+                                <i data-lucide="banknote"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="summary-card highlight" id="balance-card-total">
+                        <div class="summary-card-inner">
+                            <div class="summary-card-info">
+                                <span class="summary-title">કુલ નેટ બેલેન્સ (Net Total)</span>
+                                <h3 class="summary-value" id="val-total-bal">₹ 0.00</h3>
+                                <span class="summary-sub">ચારેય ખાતાઓનો સરવાળો</span>
+                            </div>
+                            <div class="summary-icon-box">
+                                <i data-lucide="dollar-sign"></i>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Data Presentation Table -->
+                <section class="data-section card">
+                    <div class="table-controls">
+                        <!-- Tabs -->
+                        <div class="tab-buttons">
+                            <button class="tab-btn active" id="tab-pending" data-tab="pending">
+                                <i data-lucide="clock"></i> બાકી વ્યવહારો (Pending)
+                                <span class="tab-badge" id="badge-pending">0</span>
+                            </button>
+                            <button class="tab-btn" id="tab-reconciled" data-tab="reconciled">
+                                <i data-lucide="check-circle2"></i> રીકન્સાઇલ થયેલા (Reconciled)
+                                <span class="tab-badge" id="badge-reconciled">0</span>
+                            </button>
+                            <button class="tab-btn" id="tab-rbi" data-tab="rbi">
+                                <i data-lucide="file-spreadsheet"></i> RBI રીપોર્ટ (RBI Report)
+                            </button>
+                            <!-- NPCI Summary tab button hidden for now -->
+                            <button class="tab-btn" id="tab-npci-pivot" data-tab="npci-pivot">
+                                <i data-lucide="table"></i> NPCI મેળવણી (NPCI Summary)
+                            </button>
+                        </div>
+                        
+                        <!-- Bulk Actions -->
+                        <div class="bulk-actions" id="bulk-actions-container" style="display: none; gap: 8px;">
+                            <button id="btn-bulk-action" class="btn btn-success" style="width: auto; padding: 8px 16px; font-size: 13px; height: 36px; border-radius: 8px;">
+                                <i data-lucide="check-square"></i> <span id="bulk-action-text">રીકન્સાઇલ કરો</span>
+                            </button>
+                            <button id="btn-npci-pending" class="btn" style="display: none; width: auto; padding: 8px 16px; font-size: 13px; height: 36px; border-radius: 8px; background-color: #f59e0b; color: white; border: none; align-items: center; justify-content: center; gap: 6px; cursor: pointer;">
+                                <i data-lucide="x-square"></i> <span id="npci-pending-text">પસંદ કરેલ NPCI પેન્ડિંગ કરો</span>
+                            </button>
+                            <button id="btn-bulk-delete" class="btn btn-danger" onclick="runBulkDelete()" style="width: auto; padding: 8px 16px; font-size: 13px; height: 36px; border-radius: 8px;">
+                                <i data-lucide="trash-2"></i> પસંદ કરેલ ડીલીટ કરો
+                            </button>
+                        </div>
+                        
+                        <!-- Search & Filter -->
+                        <div class="search-filters">
+                            <div class="search-input-wrapper">
+                                <i data-lucide="search" class="search-icon"></i>
+                                <input type="text" id="search-box" placeholder="શોધો (વર્ણન, ટાઈપ, રકમ)...">
+                            </div>
+                            <div class="filter-wrapper">
+                                <select id="filter-type">
+                                    <option value="all">બધા ખાતા / All Types</option>
+                                    <option value="HDFC">HDFC</option>
+                                    <option value="345051">345051</option>
+                                    <option value="3493">3493</option>
+                                    <option value="3496">3496</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Table Wrapper -->
+                    <div class="table-container" id="main-table-container">
+                        <table class="recon-table" id="recon-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 110px;">DATE</th>
+                                    <th>DISCRIPTION</th>
+                                    <th style="width: 100px;">TYPE</th>
+                                    <th style="width: 90px; text-align: center;">FLAG</th>
+                                    <th style="width: 120px;">REF NO</th>
+                                    <th style="width: 80px; text-align: center;">ACTION</th>
+                                    <th style="width: 110px;">ACTUAL DATE</th>
+                                    <th style="width: 130px; text-align: right;">CREDIT TRN</th>
+                                    <th style="width: 130px; text-align: right;">DEBIT TRN</th>
+                                    <th style="width: 110px;">STATUS</th>
+                                    <th style="width: 70px; text-align: center;">DAY</th>
+                                    <th style="width: 70px; text-align: center;">COUNT</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body">
+                                <tr>
+                                    <td colspan="10" class="table-empty-state">
+                                        <i data-lucide="file-warning"></i>
+                                        <p>કોઈ ડેટા ઉપલબ્ધ નથી. કૃપા કરીને ઉપરની ચાર સીએસવી ફાઈલો અપલોડ કરો.</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination / Status Footer -->
+                    <div class="table-footer">
+                        <span id="entries-count">0 માંથી 0 વ્યવહારો દર્શાવેલ છે</span>
+                        <div class="pagination-controls" id="pagination-controls">
+                            <!-- Dynamically generated -->
+                        </div>
+                    </div>
+
+                    <!-- RBI Report Container -->
+                    <div id="rbi-report-container" style="display: none; padding: 20px 0;">
+                        <div class="card-header" style="margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px;">
+                            <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="file-spreadsheet" style="color: #a855f7; width: 24px; height: 24px;"></i>
+                                <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #a855f7;">RBI ત્રિમાસિક પેન્ડિંગ અહેવાલ જનરેટર (RBI Ageing Report)</h3>
+                            </div>
+                            <span class="card-subtitle" style="font-size: 12px; color: var(--text-muted); display: block; margin-top: 4px;">બ્રાઉઝરમાંથી ડાઉનલોડ કરેલી પેન્ડિંગ એક્સેલ ફાઇલ (.xlsx) અહીં અપલોડ કરો.</span>
+                        </div>
+                        
+                        <div class="upload-container" style="margin-bottom: 24px;">
+                            <div id="rbi-drop-zone" class="drop-zone" style="border: 2px dashed rgba(168, 85, 247, 0.3); background: rgba(168, 85, 247, 0.02); border-radius: 12px; padding: 32px; text-align: center; cursor: pointer; transition: all 0.2s;">
+                                <div class="drop-zone-content" style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                                    <i data-lucide="file-up" class="drop-icon" style="color: #a855f7; width: 32px; height: 32px;"></i>
+                                    <p class="drop-text" style="font-size: 14px; margin: 0;">પેન્ડિંગ એક્સેલ ફાઇલ ખેંચી લાવો અથવા <span style="color: #a855f7; font-weight: 600;">બ્રાઉઝ કરો</span></p>
+                                    <span class="drop-subtext" style="font-size: 11px; color: var(--text-muted);">ફક્ત Pending_Recon_*.xlsx ફાઇલ સ્વીકાર્ય છે</span>
+                                </div>
+                                <input type="file" id="rbi-file-input" accept=".xlsx" class="file-input" style="display: none;">
+                            </div>
+                        </div>
+                        
+                        <!-- RBI Table Display -->
+                        <div id="rbi-result-area" style="display: none;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 12px;">
+                                <span style="font-size: 13px; font-weight: 600; color: var(--text-primary);" id="rbi-statement-date-label">અહેવાલ તારીખ (Reporting Date): -</span>
+                                <button id="btn-export-rbi" class="btn btn-success" style="width: auto; padding: 8px 16px; font-size: 13px; height: 36px; border-radius: 8px;">
+                                    <i data-lucide="download"></i> RBI રીપોર્ટ ડાઉનલોડ (Excel)
+                                </button>
+                            </div>
+                            
+                            <div class="table-container">
+                                <table class="recon-table" style="min-width: 100%;">
+                                    <thead>
+                                        <tr>
+                                            <th style="text-align: center; width: 80px;">SR NO</th>
+                                            <th>AGEING CATEGORY</th>
+                                            <th style="text-align: right; width: 150px;">CREDIT RECORD</th>
+                                            <th style="text-align: right; width: 220px;">CREDIT AMOUNT</th>
+                                            <th style="text-align: right; width: 150px;">DEBIT RECORD</th>
+                                            <th style="text-align: right; width: 220px;">DEBIT AMOUNT</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="rbi-table-body">
+                                        <!-- Dynamically generated ageing rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- PapaParse CDN for parsing CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <!-- styled-xlsx CDN for generating XLSX Excel sheets with styles -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    
+    <!-- App JavaScript Logic -->
+    <script src="app.js?v=2.9.4"></script>
+</body>
+</html>

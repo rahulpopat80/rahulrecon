@@ -1,0 +1,11 @@
+Meta row 1
+Meta row 2
+Meta row 3
+Meta row 4
+Meta row 5
+Meta row 6
+POSTDATE,USERNARRATION,CreditAmount,Debitamount,Textbox81
+12/07/2026,Vendor Payment Acme Corp,0.00,120000.00,45000.00DR
+14/07/2026,Interest Received,1500.00,0.00,43500.00DR
+16/07/2026,Office Supplies,0.00,3000.00,46500.00DR
+20/07/2026,Final Balance Row,,,52300.00DR
