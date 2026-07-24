@@ -807,10 +807,10 @@ function saveStateToFirebase(showNotification = false) {
                 }
             })
             .catch((error) => {
-                console.error("[Firebase] Error saving state:", error);
-                updateFirebaseUIStatus(false, 'Save Failed');
+                console.warn("[Firebase] Error saving state:", error);
+                updateFirebaseUIStatus(false, 'Cloud Perm Error');
                 if (showNotification) {
-                    showToast("ફાયરબેઝમાં સેવ કરતી વખતે ભૂલ આવી: " + error.message, "error");
+                    showToast("ફાયરબેઝ પરમિશન એરર: Firebase Console માં Firestore Database 'Rules' ચાલુ કરો.", "error");
                 }
             });
     }, 1000);
@@ -819,10 +819,11 @@ function saveStateToFirebase(showNotification = false) {
 function loadStateFromFirebase(silent = false) {
     if (!firebaseInitialized || !db) {
         if (!silent) showToast("ફાયરબેઝ કનેક્ટેડ નથી!", "error");
+        updateFirebaseUIStatus(true, 'System Ready (Local)');
         return;
     }
     
-    updateFirebaseUIStatus(true, 'Fetching Cloud Data...');
+    if (!silent) updateFirebaseUIStatus(true, 'Fetching Cloud Data...');
     
     db.collection("recon_snapshots").doc("current_state").get()
         .then((doc) => {
@@ -844,18 +845,23 @@ function loadStateFromFirebase(silent = false) {
                         showToast(`ફાયરબેઝમાંથી ${state.mergedData.length} વ્યવહારો અને સ્ટેટસ સફળતાપૂર્વક લોડ થયા.`, "success");
                     }
                 } else {
-                    updateFirebaseUIStatus(true, 'Firebase Ready');
+                    updateFirebaseUIStatus(true, 'System Ready');
                     if (!silent) showToast("ફાયરબેઝમાં કોઈ જૂનો ડેટા મળ્યો નથી.", "info");
                 }
             } else {
-                updateFirebaseUIStatus(true, 'Firebase Ready');
+                updateFirebaseUIStatus(true, 'System Ready');
                 if (!silent) showToast("ફાયરબેઝમાં કોઈ ડેટા સેવ કરેલ નથી.", "info");
             }
         })
         .catch((error) => {
-            console.error("[Firebase] Error fetching state:", error);
-            updateFirebaseUIStatus(false, 'Fetch Failed');
-            if (!silent) showToast("ફાયરબેઝમાંથી ડેટા લાવવામાં ભૂલ આવી: " + error.message, "error");
+            console.warn("[Firebase] Error fetching state:", error);
+            if (silent) {
+                // Silent startup fallback to local mode
+                updateFirebaseUIStatus(true, 'System Ready (Local)');
+            } else {
+                updateFirebaseUIStatus(false, 'Firestore Perm Error');
+                showToast("ફાયરબેઝ પરમિશન જરૂરી છે: Firebase Console માં Firestore Rules ચાલુ કરો.", "error");
+            }
         });
 }
 
