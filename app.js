@@ -746,17 +746,17 @@ function refreshLedgerCounts() {
 function compressMergedData(data) {
     if (!data || !Array.isArray(data)) return [];
     return data.map(item => ({
-        id: item.id,
-        d: item.date,
-        ds: item.description,
-        t: item.type,
+        id: item.id || '',
+        d: item.date || '',
+        ds: item.description || '',
+        t: item.type || '',
         c: item.creditTrn || 0,
         db: item.debitTrn || 0,
         f: item.flag || 'DAILY',
-        ad: item.actualDate,
+        ad: item.actualDate || null,
         r: item.reconciled ? 1 : 0,
-        mg: item.matchGroupId || undefined,
-        p: item.parentType || undefined,
+        mg: item.matchGroupId || null,
+        p: item.parentType || null,
         co: item.isCarriedOver ? 1 : 0
     }));
 }
@@ -947,12 +947,24 @@ function saveStateToFirebase(showNotification = false) {
     
     firebaseSaveTimeout = setTimeout(() => {
         isSelfSaving = true;
+        
+        const filesMetaToSave = {};
+        for (let key in state.files) {
+            filesMetaToSave[key] = {
+                loaded: state.files[key].loaded || false,
+                balance: state.files[key].balance || 0,
+                previousBalance: state.files[key].previousBalance || 0,
+                rawName: state.files[key].rawName || '',
+                rowCount: state.files[key].rowCount || (state.files[key].data ? state.files[key].data.length : 0)
+            };
+        }
+        
         const payload = {
-            currentDate: state.currentDate,
-            similarityThreshold: state.similarityThreshold,
-            dateTolerance: state.dateTolerance,
-            matchGroupCounter: state.matchGroupCounter,
-            files: state.files,
+            currentDate: state.currentDate || '',
+            similarityThreshold: state.similarityThreshold || 0.60,
+            dateTolerance: state.dateTolerance || 7,
+            matchGroupCounter: state.matchGroupCounter || 0,
+            files: filesMetaToSave,
             mergedData: compressMergedData(state.mergedData),
             lastUpdatedFormatted: new Date().toLocaleString('en-IN')
         };
