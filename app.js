@@ -1,8 +1,22 @@
 // Global error catcher to display any JS errors to the user
 window.addEventListener('error', function(event) {
-    const errorMsg = event.message + '\nAt: ' + event.filename + ':' + event.lineno;
+    console.error("Captured global error event:", event);
+    
+    // Ignore cross-origin "Script error." which lacks details and is usually harmless or caused by blocked scripts/extensions
+    if (event.message === "Script error." && (!event.filename || event.filename === "")) {
+        console.warn("Ignored generic cross-origin 'Script error.' to prevent blocking UI alerts.");
+        return;
+    }
+    
+    let errorMsg = event.message;
+    if (event.error && event.error.stack) {
+        errorMsg += '\nStack: ' + event.error.stack;
+    } else {
+        errorMsg += '\nAt: ' + (event.filename || 'unknown') + ':' + (event.lineno || 0);
+    }
     alert("સિસ્ટમમાં એરર આવી છે:\n" + errorMsg);
 });
+
 
 // Bank Reconciliation Application Logic
 
