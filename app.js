@@ -2751,8 +2751,7 @@ function runAutoReconciliation() {
     // Check if the live difference is now zero (0.00) after auto-reconciliation
     const finalDiff = calculateCurrentDifference();
     if (Math.abs(finalDiff) < 0.01 && state.mergedData.length > 0) {
-        showToast('મેળવણી પત્રક પૂર્ણ! ડિફરન્સ શૂન્ય છે, એક્સેલ ફાઇલ આપોઆપ ડાઉનલોડ થઈ રહી છે...', 'success');
-        setTimeout(() => exportToExcel('reconciled'), 1000);
+        showToast('મેળવણી પત્રક પૂર્ણ! ડિફરન્સ શૂન્ય છે.', 'success');
     }
 }
 
@@ -2832,8 +2831,7 @@ function reconcileSingle(itemId) {
         // Check if the live difference is now zero (0.00) after reconciliation
         const finalDiff = calculateCurrentDifference();
         if (Math.abs(finalDiff) < 0.01 && state.mergedData.length > 0) {
-            showToast('મેળવણી પત્રક પૂર્ણ! ડિફરન્સ શૂન્ય છે, એક્સેલ ફાઇલ આપોઆપ ડાઉનલોડ થઈ રહી છે...', 'success');
-            setTimeout(() => exportToExcel('reconciled'), 1000);
+            showToast('મેળવણી પત્રક પૂર્ણ! ડિફરન્સ શૂન્ય છે.', 'success');
         }
     }
 }
@@ -2997,8 +2995,7 @@ function runBulkAction() {
         // Check if the live difference is now zero (0.00) after bulk manual reconciliation
         const finalDiff = calculateCurrentDifference();
         if (Math.abs(finalDiff) < 0.01 && state.mergedData.length > 0) {
-            showToast('મેળવણી પત્રક પૂર્ણ! ડિફરન્સ શૂન્ય છે, એક્સેલ ફાઇલ આપોઆપ ડાઉનલોડ થઈ રહી છે...', 'success');
-            setTimeout(() => exportToExcel('reconciled'), 1000);
+            showToast('મેળવણી પત્રક પૂર્ણ! ડિફરન્સ શૂન્ય છે.', 'success');
         }
         return;
     }
@@ -3049,8 +3046,7 @@ function runBulkAction() {
     // Check if the live difference is now zero (0.00) after bulk manual reconciliation
     const finalDiff = calculateCurrentDifference();
     if (Math.abs(finalDiff) < 0.01 && state.mergedData.length > 0) {
-        showToast('મેળવણી પત્રક પૂર્ણ! ડિફરન્સ શૂન્ય છે, એક્સેલ ફાઇલ આપોઆપ ડાઉનલોડ થઈ રહી છે...', 'success');
-        setTimeout(() => exportToExcel('reconciled'), 1000);
+        showToast('મેળવણી પત્રક પૂર્ણ! ડિફરન્સ શૂન્ય છે.', 'success');
     }
 }
 
@@ -3195,7 +3191,7 @@ function renderTable() {
     if (pageItems.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="10" class="table-empty-state">
+                <td colspan="12" class="table-empty-state">
                     <i data-lucide="file-warning"></i>
                     <p>${state.mergedData.length === 0 
                         ? 'કોઈ ડેટા ઉપલબ્ધ નથી. કૃપા કરીને ઉપરની ચાર સીએસવી ફાઈલો અપલોડ કરો.' 
@@ -3588,8 +3584,7 @@ function toggleNPCIDateReconciliation(dateStr, isCurrentlyReconciled) {
     // Check if the live difference is now zero (0.00) after pivot reconciliation
     const finalDiff = calculateCurrentDifference();
     if (Math.abs(finalDiff) < 0.01 && state.mergedData.length > 0) {
-        showToast('મેળવણી પત્રક પૂર્ણ! ડિફરન્સ શૂન્ય છે, એક્સેલ ફાઇલ આપોઆપ ડાઉનલોડ થઈ રહી છે...', 'success');
-        setTimeout(() => exportToExcel('reconciled'), 1000);
+        showToast('મેળવણી પત્રક પૂર્ણ! ડિફરન્સ શૂન્ય છે.', 'success');
     }
 }
 
@@ -4290,10 +4285,10 @@ function exportToExcel(tabType) {
     } else {
         // Reconciled download doesn't need BRS Summary, keep original simple format but add Bank Title
         const sheetData = [
-            [c('THE JUNAGADH COMMERCIAL CO-OPERATIVE BANK LTD.', titleStyle), '', '', '', '', '', ''],
-            [c('RECONCILED TRANSACTIONS REPORT', subtitleStyle), '', '', '', '', '', ''],
+            [c('THE JUNAGADH COMMERCIAL CO-OPERATIVE BANK LTD.', titleStyle), '', '', '', '', '', '', ''],
+            [c('RECONCILED TRANSACTIONS REPORT', subtitleStyle), '', '', '', '', '', '', ''],
             [],
-            [c('DATE', headerStyle), c('DISCRIPTION', headerStyle), c('TYPE', headerStyle), c('FLAG', headerStyle), c('ACTUAL DATE', headerStyle), c('CREDIT TRN', headerStyle), c('DEBIT TRN', headerStyle)]
+            [c('DATE', headerStyle), c('DISCRIPTION', headerStyle), c('TYPE', headerStyle), c('FLAG', headerStyle), c('REF NO', headerStyle), c('ACTUAL DATE', headerStyle), c('CREDIT TRN', headerStyle), c('DEBIT TRN', headerStyle)]
         ];
         
         sortedList.forEach(item => {
@@ -4302,6 +4297,7 @@ function exportToExcel(tabType) {
                 c(item.description, dataCell),
                 c(item.type, dataCellCenter),
                 c(item.flag, dataCellCenter),
+                c(item.refNo || '', dataCellCenter),
                 c(item.actualDate, dataCellCenter),
                 item.creditTrn > 0 ? c(item.creditTrn, dataCellRight) : c('', dataCellRight),
                 item.debitTrn > 0 ? c(item.debitTrn, dataCellRight) : c('', dataCellRight)
@@ -4311,27 +4307,27 @@ function exportToExcel(tabType) {
         sheetData.push(
             [],
             [],
-            [c('THE JUNAGADH COMMERCIAL CO-OPERATIVE BANK LTD.', footerBankStyle), '', '', '', '', '', ''],
+            [c('THE JUNAGADH COMMERCIAL CO-OPERATIVE BANK LTD.', footerBankStyle), '', '', '', '', '', '', ''],
             [],
-            ['', c('OFFICER', footerRoleStyle), '', '', c('MANAGER', footerRoleStyle), '', '']
+            ['', c('OFFICER', footerRoleStyle), '', '', '', c('MANAGER', footerRoleStyle), '', '']
         );
         
         worksheet = XLSX.utils.aoa_to_sheet(sheetData);
         
         const merges = [
-            { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
-            { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } }
+            { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+            { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } }
         ];
         
         sheetData.forEach((row, idx) => {
             if (row && row[0] && typeof row[0] === 'object' && row[0].v === 'THE JUNAGADH COMMERCIAL CO-OPERATIVE BANK LTD.') {
-                merges.push({ s: { r: idx, c: 0 }, e: { r: idx, c: 6 } });
+                merges.push({ s: { r: idx, c: 0 }, e: { r: idx, c: 7 } });
             }
             if (row && row[1] && typeof row[1] === 'object' && row[1].v === 'OFFICER') {
                 merges.push({ s: { r: idx, c: 1 }, e: { r: idx, c: 2 } });
             }
-            if (row && row[4] && typeof row[4] === 'object' && row[4].v === 'MANAGER') {
-                merges.push({ s: { r: idx, c: 4 }, e: { r: idx, c: 5 } });
+            if (row && row[5] && typeof row[5] === 'object' && row[5].v === 'MANAGER') {
+                merges.push({ s: { r: idx, c: 5 }, e: { r: idx, c: 6 } });
             }
         });
         
@@ -4361,15 +4357,28 @@ function exportToExcel(tabType) {
     ];
     
     // Explicit Column Widths to fit A4 paper nicely without clipping
-    worksheet['!cols'] = [
-        { wch: 12 }, // Date (Col A)
-        { wch: 45 }, // Description (Col B)
-        { wch: 12 }, // Type (Col C)
-        { wch: 12 }, // Flag (Col D)
-        { wch: 14 }, // Actual Date (Col E)
-        { wch: 18 }, // Credit Trn (Col F)
-        { wch: 18 }  // Debit Trn (Col G)
-    ];
+    if (tabType === 'pending') {
+        worksheet['!cols'] = [
+            { wch: 12 }, // Date (Col A)
+            { wch: 45 }, // Description (Col B)
+            { wch: 12 }, // Side (Col C)
+            { wch: 10 }, // Sign (Col D)
+            { wch: 18 }, // Credit Pending (Col E)
+            { wch: 18 }, // Debit Pending (Col F)
+            { wch: 18 }  // Net Balance (Col G)
+        ];
+    } else {
+        worksheet['!cols'] = [
+            { wch: 12 }, // Date (Col A)
+            { wch: 45 }, // Description (Col B)
+            { wch: 12 }, // Type (Col C)
+            { wch: 12 }, // Flag (Col D)
+            { wch: 20 }, // REF NO (Col E)
+            { wch: 14 }, // Actual Date (Col F)
+            { wch: 18 }, // Credit Trn (Col G)
+            { wch: 18 }  // Debit Trn (Col H)
+        ];
+    }
     
     const workbook = XLSX.utils.book_new();
     const sheetName = tabType === 'pending' ? 'Pending Transactions' : 'Reconciled Transactions';
