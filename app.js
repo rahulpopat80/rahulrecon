@@ -142,6 +142,11 @@ function initApp() {
     btnReset.addEventListener('click', resetApp);
     btnBulkAction.addEventListener('click', runBulkAction);
     
+    const btnGlobalUndo = document.getElementById('btn-global-undo');
+    if (btnGlobalUndo) {
+        btnGlobalUndo.addEventListener('click', triggerUndo);
+    }
+    
     const btnNpciPending = document.getElementById('btn-npci-pending');
     if (btnNpciPending) {
         btnNpciPending.addEventListener('click', runNpciPendingAction);
@@ -737,10 +742,94 @@ function refreshLedgerCounts() {
     });
 }
 
+// Compress state.mergedData to save space
+function compressMergedData(data) {
+    if (!data || !Array.isArray(data)) return [];
+    return data.map(item => ({
+        id: item.id,
+        d: item.date,
+        ds: item.description,
+        t: item.type,
+        c: item.creditTrn || 0,
+        db: item.debitTrn || 0,
+        f: item.flag || 'DAILY',
+        ad: item.actualDate,
+        r: item.reconciled ? 1 : 0,
+        mg: item.matchGroupId || undefined,
+        p: item.parentType || undefined,
+        co: item.isCarriedOver ? 1 : 0
+    }));
+}
+
+// Decompress state.mergedData
+function decompressMergedData(compressed) {
+    if (!compressed || !Array.isArray(compressed)) return [];
+    return compressed.map(c => ({
+        id: c.id,
+        date: c.d,
+        description: c.ds,
+        type: c.t,
+        creditTrn: c.c || 0,
+        debitTrn: c.db || 0,
+        flag: c.f || 'DAILY',
+        actualDate: c.ad,
+        reconciled: c.r === 1,
+        matchGroupId: c.mg || null,
+        parentType: c.p || undefined,
+        isCarriedOver: c.co === 1
+    }));
+}
+
+// Push current state to Undo stack before performing changes
+function pushToUndoStack() {
+    if (!state.undoStack) state.undoStack = [];
+    if (state.undoStack.length >= 20) {
+        state.undoStack.shift();
+    }
+    state.undoStack.push(JSON.stringify({
+        mergedData: compressMergedData(state.mergedData),
+        matchGroupCounter: state.matchGroupCounter,
+        selectedIds: Array.from(state.selectedIds)
+    }));
+    updateUndoButtonVisibility();
+}
+
+// Trigger Undo to restore previous state
+function triggerUndo() {
+    if (!state.undoStack || state.undoStack.length === 0) {
+        showToast("પાછી મેળવવા માટે કોઈ એક્શન નથી (Undo stack empty).", "warning");
+        return;
+    }
+    try {
+        const prev = JSON.parse(state.undoStack.pop());
+        state.mergedData = decompressMergedData(prev.mergedData);
+        state.matchGroupCounter = prev.matchGroupCounter || 0;
+        state.selectedIds = new Set(prev.selectedIds || []);
+        
+        saveStateToLocalStorage();
+        refreshLedgerCounts();
+        updateBRSLiveWidget();
+        renderTable();
+        updateUndoButtonVisibility();
+        showToast("છેલ્લી ક્રિયા પાછી મેળવી લેવામાં આવી છે (Undo success)!", "success");
+    } catch (e) {
+        console.error("[Undo] Restoring state failed: ", e);
+        showToast("Undo કરવામાં કોઈ ભૂલ આવી.", "error");
+    }
+}
+
+// Update the global Undo button display state
+function updateUndoButtonVisibility() {
+    const btn = document.getElementById('btn-global-undo');
+    if (btn) {
+        btn.style.display = (state.undoStack && state.undoStack.length > 0) ? 'inline-flex' : 'none';
+    }
+}
+
 // Save mergedData and metadata to localStorage (optimized to prevent QuotaExceededError)
 function saveStateToLocalStorage() {
     try {
-        localStorage.setItem('recon_merged_data', JSON.stringify(state.mergedData));
+        localStorage.setItem('recon_merged_data', JSON.stringify(compressMergedData(state.mergedData)));
         localStorage.setItem('recon_match_counter', state.matchGroupCounter.toString());
         if (state.currentDate) {
             localStorage.setItem('recon_current_date', state.currentDate);
@@ -822,7 +911,8 @@ function listenToCloudChanges() {
             if (doc.exists && !isSelfSaving) {
                 const data = doc.data();
                 if (data.mergedData && Array.isArray(data.mergedData)) {
-                    state.mergedData = data.mergedData;
+                    const firstItem = data.mergedData[0];
+                    state.mergedData = (firstItem && 'd' in firstItem) ? decompressMergedData(data.mergedData) : data.mergedData;
                     if (data.currentDate) {
                         state.currentDate = data.currentDate;
                         if (currentDateInput) currentDateInput.value = data.currentDate;
@@ -863,7 +953,7 @@ function saveStateToFirebase(showNotification = false) {
             dateTolerance: state.dateTolerance,
             matchGroupCounter: state.matchGroupCounter,
             files: state.files,
-            mergedData: state.mergedData,
+            mergedData: compressMergedData(state.mergedData),
             lastUpdatedFormatted: new Date().toLocaleString('en-IN')
         };
         
@@ -908,7 +998,8 @@ function loadStateFromFirebase(silent = false) {
             if (doc.exists) {
                 const data = doc.data();
                 if (data.mergedData && Array.isArray(data.mergedData)) {
-                    state.mergedData = data.mergedData;
+                    const firstItem = data.mergedData[0];
+                    state.mergedData = (firstItem && 'd' in firstItem) ? decompressMergedData(data.mergedData) : data.mergedData;
                     if (data.currentDate) {
                         state.currentDate = data.currentDate;
                         if (currentDateInput) currentDateInput.value = data.currentDate;
@@ -1529,7 +1620,12 @@ function loadStateFromLocalStorage() {
     const savedFilesMeta = localStorage.getItem('recon_files_meta');
     
     if (savedMergedData) {
-        state.mergedData = JSON.parse(savedMergedData);
+        const parsed = JSON.parse(savedMergedData);
+        if (parsed && parsed.length > 0 && 'd' in parsed[0]) {
+            state.mergedData = decompressMergedData(parsed);
+        } else {
+            state.mergedData = parsed || [];
+        }
         state.matchGroupCounter = parseInt(savedMatchCounter) || 0;
     }
     
@@ -2341,6 +2437,7 @@ function getFileCategory(item) {
 // Auto Reconciliation Algorithm
 function runAutoReconciliation() {
     if (state.mergedData.length === 0) return;
+    pushToUndoStack();
     
     // Deterministic sort of mergedData to ensure 100% consistent matching results
     state.mergedData.sort((a, b) => {
@@ -2376,8 +2473,7 @@ function runAutoReconciliation() {
         }
     });
     
-    // Pass 0: NPCI Daily Sum Auto-Reconciliation (Independent Leg matching)
-    // Find all pending transactions with flag 'NPCI'
+    // Pass 0: NPCI Daily Sum Auto-Reconciliation (Only match if total Credits === total Debits)
     const npciTxns = state.mergedData.filter(item => !item.reconciled && item.flag && item.flag.toUpperCase() === 'NPCI');
     
     // Group them by actualDate
@@ -2392,127 +2488,21 @@ function runAutoReconciliation() {
     Object.keys(npciByDate).forEach(d => {
         const txns = npciByDate[d];
         
-        // Separate HDFC (Bank) and GL (Our Site) transactions
-        const hdfcSide = txns.filter(item => getFileCategory(item) === 'HDFC');
-        const glSide = txns.filter(item => getFileCategory(item) !== 'HDFC');
-        
-        if (hdfcSide.length === 0 || glSide.length === 0) return;
-        
-        // Calculate HDFC side totals and collect items
-        let hdfc_credits = 0;
-        let hdfc_debits = 0;
-        const hdfcCreditTxns = [];
-        const hdfcDebitTxns = [];
-        hdfcSide.forEach(item => {
-            if (item.creditTrn > 0) {
-                hdfc_credits += item.creditTrn;
-                hdfcCreditTxns.push(item);
-            }
-            if (item.debitTrn > 0) {
-                hdfc_debits += item.debitTrn;
-                hdfcDebitTxns.push(item);
-            }
+        let total_credits = 0;
+        let total_debits = 0;
+        txns.forEach(item => {
+            total_credits += item.creditTrn || 0;
+            total_debits += item.debitTrn || 0;
         });
         
-        // Calculate GL side totals and collect items
-        let gl_credits = 0;
-        let gl_debits = 0;
-        const glCreditTxns = [];
-        const glDebitTxns = [];
-        glSide.forEach(item => {
-            if (item.creditTrn > 0) {
-                gl_credits += item.creditTrn;
-                glCreditTxns.push(item);
-            }
-            if (item.debitTrn > 0) {
-                gl_debits += item.debitTrn;
-                glDebitTxns.push(item);
-            }
-        });
-        
-        // 1. Evaluate Normal Leg 1: GL Credits vs HDFC Debits
-        if (gl_credits > 0 && hdfc_debits > 0 && Math.abs(gl_credits - hdfc_debits) < 0.05) {
-            const groupId = 'npci_leg_normal_1_' + d.replace(/\//g, '_') + '_' + state.matchGroupCounter;
-            state.matchGroupCounter++;
-            glCreditTxns.forEach(item => {
-                item.reconciled = true;
-                item.matchGroupId = groupId;
-                matchCount++;
-            });
-            hdfcDebitTxns.forEach(item => {
-                item.reconciled = true;
-                item.matchGroupId = groupId;
-                matchCount++;
-            });
-        }
-        
-        // 2. Evaluate Normal Leg 2: GL Debits vs HDFC Credits
-        if (gl_debits > 0 && hdfc_credits > 0 && Math.abs(gl_debits - hdfc_credits) < 0.05) {
-            const groupId = 'npci_leg_normal_2_' + d.replace(/\//g, '_') + '_' + state.matchGroupCounter;
-            state.matchGroupCounter++;
-            glDebitTxns.forEach(item => {
-                item.reconciled = true;
-                item.matchGroupId = groupId;
-                matchCount++;
-            });
-            hdfcCreditTxns.forEach(item => {
-                item.reconciled = true;
-                item.matchGroupId = groupId;
-                matchCount++;
-            });
-        }
-        
-        // 3. Evaluate Reverse Leg 1: GL Credits vs HDFC Credits (as contra matching fallback)
-        if (gl_credits > 0 && hdfc_credits > 0 && Math.abs(gl_credits - hdfc_credits) < 0.05) {
-            const glUnrec = glCreditTxns.filter(t => !t.reconciled);
-            const hdfcUnrec = hdfcCreditTxns.filter(t => !t.reconciled);
-            if (glUnrec.length > 0 && hdfcUnrec.length > 0) {
-                const groupId = 'npci_leg_reverse_1_' + d.replace(/\//g, '_') + '_' + state.matchGroupCounter;
-                state.matchGroupCounter++;
-                glUnrec.forEach(item => {
-                    item.reconciled = true;
-                    item.matchGroupId = groupId;
-                    matchCount++;
-                });
-                hdfcUnrec.forEach(item => {
-                    item.reconciled = true;
-                    item.matchGroupId = groupId;
-                    matchCount++;
-                });
-            }
-        }
-        
-        // 4. Evaluate Reverse Leg 2: GL Debits vs HDFC Debits
-        if (gl_debits > 0 && hdfc_debits > 0 && Math.abs(gl_debits - hdfc_debits) < 0.05) {
-            const glUnrec = glDebitTxns.filter(t => !t.reconciled);
-            const hdfcUnrec = hdfcDebitTxns.filter(t => !t.reconciled);
-            if (glUnrec.length > 0 && hdfcUnrec.length > 0) {
-                const groupId = 'npci_leg_reverse_2_' + d.replace(/\//g, '_') + '_' + state.matchGroupCounter;
-                state.matchGroupCounter++;
-                glUnrec.forEach(item => {
-                    item.reconciled = true;
-                    item.matchGroupId = groupId;
-                    matchCount++;
-                });
-                hdfcUnrec.forEach(item => {
-                    item.reconciled = true;
-                    item.matchGroupId = groupId;
-                    matchCount++;
-                });
-            }
-        }
-        
-        // 5. If the net daily difference is zero, reconcile all remaining transactions on this date
-        const netDailyDiff = Math.abs((gl_credits - gl_debits) - (hdfc_debits - hdfc_credits));
-        if (netDailyDiff < 0.05) {
+        // Only reconcile if Credit and Debit sum match exactly (difference < 0.05)
+        if (total_credits > 0 && Math.abs(total_credits - total_debits) < 0.05) {
             const groupId = 'npci_group_daily_' + d.replace(/\//g, '_') + '_' + state.matchGroupCounter;
             state.matchGroupCounter++;
             txns.forEach(item => {
-                if (!item.reconciled) {
-                    item.reconciled = true;
-                    item.matchGroupId = groupId;
-                    matchCount++;
-                }
+                item.reconciled = true;
+                item.matchGroupId = groupId;
+                matchCount++;
             });
         }
     });
@@ -2789,6 +2779,7 @@ function toggleSelect(itemId) {
 // Delete a single transaction from the ledger
 function deleteTransaction(itemId) {
     if (confirm("શું તમે આ વ્યવહારને કાયમ માટે ડીલીટ કરવા માંગો છો?")) {
+        pushToUndoStack();
         state.mergedData = state.mergedData.filter(item => item.id !== itemId);
         state.selectedIds.delete(itemId);
         saveStateToLocalStorage();
@@ -2798,11 +2789,60 @@ function deleteTransaction(itemId) {
     }
 }
 
+// Reconcile a single pending transaction
+function reconcileSingle(itemId) {
+    pushToUndoStack();
+    const item = state.mergedData.find(t => t.id === itemId);
+    if (item && !item.reconciled) {
+        item.reconciled = true;
+        item.matchGroupId = 'manual_group_' + state.matchGroupCounter;
+        state.matchGroupCounter++;
+        
+        saveStateToLocalStorage();
+        refreshLedgerCounts();
+        renderTable();
+        showToast('વ્યવહાર સફળતાપૂર્વક મેળવવામાં (Reconciled) આવ્યો છે.', 'success');
+        
+        // Check if the live difference is now zero (0.00) after reconciliation
+        const finalDiff = calculateCurrentDifference();
+        if (Math.abs(finalDiff) < 0.01 && state.mergedData.length > 0) {
+            showToast('મેળવણી પત્રક પૂર્ણ! ડિફરન્સ શૂન્ય છે, એક્સેલ ફાઇલ આપોઆપ ડાઉનલોડ થઈ રહી છે...', 'success');
+            setTimeout(() => exportToExcel('reconciled'), 1000);
+        }
+    }
+}
+
+// Unreconcile a single reconciled transaction
+function unreconcileSingle(itemId) {
+    pushToUndoStack();
+    const item = state.mergedData.find(t => t.id === itemId);
+    if (item && item.reconciled) {
+        if (item.matchGroupId) {
+            // Find partner and unreconcile both
+            const partner = state.mergedData.find(t => t.matchGroupId === item.matchGroupId && t.id !== item.id);
+            item.reconciled = false;
+            item.matchGroupId = null;
+            if (partner) {
+                partner.reconciled = false;
+                partner.matchGroupId = null;
+            }
+        } else {
+            item.reconciled = false;
+        }
+        
+        saveStateToLocalStorage();
+        refreshLedgerCounts();
+        renderTable();
+        showToast('વ્યવહાર ફરીથી પેન્ડીંગ કરવામાં આવ્યો છે.', 'info');
+    }
+}
+
 // Bulk delete all selected transactions
 function runBulkDelete() {
     if (state.selectedIds.size === 0) return;
     
     if (confirm(`શું તમે પસંદ કરેલા તમામ ${state.selectedIds.size} વ્યવહારોને કાયમ માટે ડીલીટ કરવા માંગો છો?`)) {
+        pushToUndoStack();
         const idsToDelete = new Set(state.selectedIds);
         state.mergedData = state.mergedData.filter(item => !idsToDelete.has(item.id));
         state.selectedIds.clear();
@@ -2887,6 +2927,7 @@ function updateBulkActionButtons() {
 
 // Run Bulk Actions (move checked entries)
 function runBulkAction() {
+    pushToUndoStack();
     if (state.currentTab === 'npci-pivot') {
         let count = 0;
         const pendingSelected = [];
@@ -3263,6 +3304,14 @@ function renderTable() {
                         <div class="recon-checkbox ${isSelected ? 'checked' : ''}" data-id="${item.id}" onclick="toggleSelect('${item.id}')">
                             <i data-lucide="check"></i>
                         </div>
+                        ${item.reconciled 
+                            ? `<button onclick="event.stopPropagation(); unreconcileSingle('${item.id}')" title="પેન્ડીંગ કરો / Set Pending" style="border: none; background: transparent; color: #f59e0b; cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;">
+                                 <i data-lucide="undo-2" style="width:14px; height:14px;"></i>
+                               </button>`
+                            : `<button onclick="event.stopPropagation(); reconcileSingle('${item.id}')" title="રીકન્સાઇલ કરો / Reconcile" style="border: none; background: transparent; color: #10b981; cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;">
+                                 <i data-lucide="check-circle-2" style="width:14px; height:14px;"></i>
+                               </button>`
+                        }
                         <button class="delete-row-btn" onclick="event.stopPropagation(); deleteTransaction('${item.id}')" title="ડીલીટ કરો / Delete" style="border: none; background: transparent; color: var(--danger); cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.2s ease; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;">
                             <i data-lucide="trash-2" style="width:14px; height:14px;"></i>
                         </button>
@@ -4710,14 +4759,23 @@ function processExcelFile(file) {
                     
                     if (credit === 0 && debit === 0) return;
                     
+                    const excelFlag = String(row[3] || 'DAILY').trim().toUpperCase();
+                    let finalActualDate = formatDateToSlash(String(row[4] || parsedDate).trim());
+                    if (excelFlag === 'NPCI') {
+                        const descDate = extractDateFromDescription(desc);
+                        if (descDate) {
+                            finalActualDate = descDate;
+                        }
+                    }
+                    
                     pendingTxnsList.push({
                         date: parsedDate,
                         description: desc,
                         type: type,
                         credit: credit,
                         debit: debit,
-                        flag: String(row[3] || 'DAILY').trim().toUpperCase(),
-                        actualDate: formatDateToSlash(String(row[4] || parsedDate).trim())
+                        flag: excelFlag,
+                        actualDate: finalActualDate
                     });
                 });
             });
