@@ -588,6 +588,29 @@ body {
     letter-spacing: -0.5px;
 }
 
+.summary-value[contenteditable="true"] {
+    cursor: pointer;
+    border-bottom: 1.5px dashed rgba(255, 255, 255, 0.25);
+    outline: none;
+    display: inline-block;
+    padding-bottom: 1px;
+    transition: all 0.2s ease;
+}
+
+.summary-value[contenteditable="true"]:hover {
+    border-bottom-color: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+}
+
+.summary-value[contenteditable="true"]:focus {
+    border-bottom: 1.5px solid var(--primary);
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
 .summary-card.highlight .summary-value {
     color: #fff;
     background: linear-gradient(135deg, #fff 50%, var(--primary) 100%);

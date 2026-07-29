@@ -206,7 +206,7 @@
                         <div class="summary-card-inner">
                             <div class="summary-card-info">
                                 <span class="summary-title">HDFC.CSV બેલેન્સ</span>
-                                <h3 class="summary-value" id="val-hdfc-bal">₹ 0.00</h3>
+                                <h3 class="summary-value" id="val-hdfc-bal" contenteditable="true" onblur="updateManualBalance('HDFC', this.textContent)" title="ક્લિક કરી રકમ સુધારો (Click to edit)">₹ 0.00</h3>
                                 <span class="summary-sub" id="sub-hdfc-bal">Closing Balance (રો 7)</span>
                             </div>
                             <div class="summary-icon-box">
@@ -218,7 +218,7 @@
                         <div class="summary-card-inner">
                             <div class="summary-card-info">
                                 <span class="summary-title">345051.CSV બેલેન્સ</span>
-                                <h3 class="summary-value" id="val-345051-bal">₹ 0.00</h3>
+                                <h3 class="summary-value" id="val-345051-bal" contenteditable="true" onblur="updateManualBalance('345051', this.textContent)" title="ક્લિક કરી રકમ સુધારો (Click to edit)">₹ 0.00</h3>
                                 <span class="summary-sub" id="sub-345051-bal">Textbox81 (છેલ્લી રો)</span>
                             </div>
                             <div class="summary-icon-box">
@@ -230,7 +230,7 @@
                         <div class="summary-card-inner">
                             <div class="summary-card-info">
                                 <span class="summary-title">3493.CSV બેલેન્સ</span>
-                                <h3 class="summary-value" id="val-3493-bal">₹ 0.00</h3>
+                                <h3 class="summary-value" id="val-3493-bal" contenteditable="true" onblur="updateManualBalance('3493', this.textContent)" title="ક્લિક કરી રકમ સુધારો (Click to edit)">₹ 0.00</h3>
                                 <span class="summary-sub" id="sub-3493-bal">Textbox81 (છેલ્લી રો)</span>
                             </div>
                             <div class="summary-icon-box">
@@ -242,7 +242,7 @@
                         <div class="summary-card-inner">
                             <div class="summary-card-info">
                                 <span class="summary-title">3496.CSV બેલેન્સ</span>
-                                <h3 class="summary-value" id="val-3496-bal">₹ 0.00</h3>
+                                <h3 class="summary-value" id="val-3496-bal" contenteditable="true" onblur="updateManualBalance('3496', this.textContent)" title="ક્લિક કરી રકમ સુધારો (Click to edit)">₹ 0.00</h3>
                                 <span class="summary-sub" id="sub-3496-bal">Textbox81 (છેલ્લી રો)</span>
                             </div>
                             <div class="summary-icon-box">
@@ -296,6 +296,9 @@
                             </button>
                             <button id="btn-bulk-delete" class="btn btn-danger" onclick="runBulkDelete()" style="width: auto; padding: 8px 16px; font-size: 13px; height: 36px; border-radius: 8px;">
                                 <i data-lucide="trash-2"></i> પસંદ કરેલ ડીલીટ કરો
+                            </button>
+                            <button id="btn-clear-selection" class="btn" onclick="clearAllSelections()" style="width: auto; padding: 8px 16px; font-size: 13px; height: 36px; border-radius: 8px; background-color: #4b5563; color: white; border: none; align-items: center; justify-content: center; gap: 6px; cursor: pointer; display: inline-flex;">
+                                <i data-lucide="x-circle"></i> પસંદગી સાફ કરો
                             </button>
                         </div>
                         

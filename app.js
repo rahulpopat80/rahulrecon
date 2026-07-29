@@ -1259,11 +1259,10 @@ function updateBRSLiveWidget() {
     state.mergedData.forEach(item => {
         if (state.selectedIds.has(item.id)) {
             const tType = getFileCategory(item);
-            const amt = Math.max(item.creditTrn, item.debitTrn);
             if (tType === 'HDFC') {
-                selected_hdfc += amt;
+                selected_hdfc += (item.creditTrn - item.debitTrn);
             } else {
-                selected_gl += amt;
+                selected_gl += (item.debitTrn - item.creditTrn);
             }
         }
     });
@@ -2608,6 +2607,9 @@ function runAutoReconciliation() {
                 const isOppositeSide = (a.creditTrn > 0 && b.debitTrn > 0) || (a.debitTrn > 0 && b.creditTrn > 0);
                 if (!isOppositeSide) continue;
                 
+                // Must be from different files
+                if (getFileCategory(a) === getFileCategory(b)) continue;
+                
                 // Description Similarity
                 const sim = getDescriptionSimilarity(a.description, b.description);
                 if (sim < state.similarityThreshold) continue;
@@ -2664,9 +2666,10 @@ function runAutoReconciliation() {
             
             if (a.reconciled || b.reconciled) return;
             
-            // Must be opposite sides (one Credit and one Debit)
+            // Must be opposite sides (one Credit and one Debit) and from different files
             const isOppositeSide = (a.creditTrn > 0 && b.debitTrn > 0) || (a.debitTrn > 0 && b.creditTrn > 0);
-            let allowed = isOppositeSide;
+            const isDiffFile = getFileCategory(a) !== getFileCategory(b);
+            let allowed = isOppositeSide && isDiffFile;
             
             if (allowed) {
                 const amtVal = parseFloat(amtStr);
@@ -2799,6 +2802,39 @@ function toggleSelect(itemId) {
     
     updateBulkActionButtons();
     updateBRSLiveWidget();
+}
+
+// Update manually edited balance from closing balance card headers
+function updateManualBalance(fileType, text) {
+    // Parse the number from the text (supporting minus sign, digits and decimal point)
+    let cleanText = text.replace(/[^\d.-]/g, '');
+    // If multiple decimals or minus signs, clean up
+    if ((cleanText.match(/\./g) || []).length > 1) {
+        const parts = cleanText.split('.');
+        cleanText = parts[0] + '.' + parts.slice(1).join('');
+    }
+    const newBal = parseFloat(cleanText) || 0;
+    
+    if (state.files && state.files[fileType]) {
+        pushToUndoStack();
+        state.files[fileType].balance = newBal;
+        saveStateToLocalStorage();
+        updateBRSLiveWidget();
+        refreshLedgerCounts();
+        showToast(`${fileType} બેલેન્સ સફળતાપૂર્વક અપડેટ થયું.`, 'success');
+    }
+}
+
+// Clear all checkbox selections
+function clearAllSelections() {
+    state.selectedIds.clear();
+    if (state.selectedNpciDates) {
+        state.selectedNpciDates.clear();
+    }
+    updateBulkActionButtons();
+    updateBRSLiveWidget();
+    renderTable();
+    showToast("તમામ પસંદગી સાફ કરવામાં આવી છે.", "info");
 }
 
 // Delete a single transaction from the ledger
