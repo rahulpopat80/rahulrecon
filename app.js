@@ -3024,14 +3024,13 @@ function unreconcileSingle(itemId) {
     const item = state.mergedData.find(t => t.id === itemId);
     if (item && item.reconciled) {
         if (item.matchGroupId) {
-            // Find partner and unreconcile both
-            const partner = state.mergedData.find(t => t.matchGroupId === item.matchGroupId && t.id !== item.id);
-            item.reconciled = false;
-            item.matchGroupId = null;
-            if (partner) {
-                partner.reconciled = false;
-                partner.matchGroupId = null;
-            }
+            // Unreconcile ALL items in this group
+            state.mergedData.forEach(t => {
+                if (t.matchGroupId === item.matchGroupId) {
+                    t.reconciled = false;
+                    t.matchGroupId = null;
+                }
+            });
         } else {
             item.reconciled = false;
         }
@@ -3205,13 +3204,13 @@ function runBulkAction() {
             const item = state.mergedData.find(t => t.id === id);
             if (item && item.reconciled) {
                 if (item.matchGroupId) {
-                    const partner = state.mergedData.find(t => t.matchGroupId === item.matchGroupId && t.id !== item.id);
-                    item.reconciled = false;
-                    item.matchGroupId = null;
-                    if (partner) {
-                        partner.reconciled = false;
-                        partner.matchGroupId = null;
-                    }
+                    const groupId = item.matchGroupId;
+                    state.mergedData.forEach(t => {
+                        if (t.matchGroupId === groupId) {
+                            t.reconciled = false;
+                            t.matchGroupId = null;
+                        }
+                    });
                 } else {
                     item.reconciled = false;
                 }
