@@ -2727,8 +2727,10 @@ function runAutoReconciliation() {
                 const isOppositeSide = (a.creditTrn > 0 && b.debitTrn > 0) || (a.debitTrn > 0 && b.creditTrn > 0);
                 if (!isOppositeSide) continue;
                 
-                // Must be from different files
-                if (getFileCategory(a) === getFileCategory(b)) continue;
+                // For ROUND amounts: same file not allowed (e.g. 345051 vs 345051).
+                // For ODD amounts: same file IS allowed (e.g. BY TRF ↔ TO TRF within 345051).
+                const isSameFile = getFileCategory(a) === getFileCategory(b);
+                if (!isOdd2 && isSameFile) continue;
                 
                 // Description Similarity
                 const sim = getDescriptionSimilarity(a.description, b.description);
@@ -2786,23 +2788,26 @@ function runAutoReconciliation() {
             
             if (a.reconciled || b.reconciled) return;
             
-            // Basic gates: opposite sides + different files
+            // Basic gates: opposite sides always required.
+            // isDiffFile required only for round amounts; odd amounts may match within the same file.
             const isOppositeSide = (a.creditTrn > 0 && b.debitTrn > 0) || (a.debitTrn > 0 && b.creditTrn > 0);
             const isDiffFile = getFileCategory(a) !== getFileCategory(b);
-            if (!isOppositeSide || !isDiffFile) return;
+            if (!isOppositeSide) return;
             
             const amtVal = parseFloat(amtStr);
-            
-            // Determine if the amount is an odd figure
-            // (has paisa OR is not a multiple of 1000)
             const isRound = (amtVal % 1000 === 0);
+            const isOddQuick = (Math.round(amtVal * 100) % 100 !== 0) || (amtVal % 100 !== 0) || !isRound;
+            // For round amounts, different file is mandatory
+            if (!isOddQuick && !isDiffFile) return;
+            
+            // Reuse isRound & isOddQuick computed above; also check uniqueness + flag for round figures
             const totalCountOfAmt = state.mergedData.filter(item => {
                 const itemAmt = Math.max(item.creditTrn, item.debitTrn).toFixed(2);
                 const isNotHistory = !item.id.startsWith('history_') && item.type !== 'history' && item.parentType !== 'history';
                 return itemAmt === amtStr && isNotHistory;
             }).length;
             
-            let isOdd = (Math.round(amtVal * 100) % 100 !== 0) || (amtVal % 100 !== 0) || (!isRound);
+            let isOdd = isOddQuick;
             if (isRound && totalCountOfAmt === 2) {
                 const flagA = (a.flag || 'DAILY').trim().toUpperCase();
                 const flagB = (b.flag || 'DAILY').trim().toUpperCase();
@@ -2810,7 +2815,7 @@ function runAutoReconciliation() {
             }
             
             // Pair rule:
-            //   Odd amounts  → any different-file pair (GL ↔ GL allowed)
+            //   Odd amounts  → any pair (same file OK, GL ↔ GL OK)
             //   Round amounts → one side must be HDFC
             if (!isOdd) {
                 if (!isValidReconPair(a, b)) return;
