@@ -2727,10 +2727,15 @@ function runAutoReconciliation() {
                 const isOppositeSide = (a.creditTrn > 0 && b.debitTrn > 0) || (a.debitTrn > 0 && b.creditTrn > 0);
                 if (!isOppositeSide) continue;
                 
-                // For ROUND amounts: same file not allowed (e.g. 345051 vs 345051).
-                // For ODD amounts: same file IS allowed (e.g. BY TRF ↔ TO TRF within 345051).
+                // Same-file matching rules:
+                //   ROUND amounts   → same file NEVER allowed
+                //   ODD amounts     → same file allowed only for GL files (345051, 3493, 3496).
+                //                     HDFC bank entries are always separate real transactions;
+                //                     two HDFC entries must never auto-match each other.
                 const isSameFile = getFileCategory(a) === getFileCategory(b);
-                if (!isOdd2 && isSameFile) continue;
+                const catA = getFileCategory(a);
+                const sameFileGlOk = isOdd2 && catA !== 'HDFC';
+                if (isSameFile && !sameFileGlOk) continue;
                 
                 // Description Similarity
                 const sim = getDescriptionSimilarity(a.description, b.description);
@@ -2797,8 +2802,13 @@ function runAutoReconciliation() {
             const amtVal = parseFloat(amtStr);
             const isRound = (amtVal % 1000 === 0);
             const isOddQuick = (Math.round(amtVal * 100) % 100 !== 0) || (amtVal % 100 !== 0) || !isRound;
-            // For round amounts, different file is mandatory
-            if (!isOddQuick && !isDiffFile) return;
+            // For round amounts, different file is mandatory.
+            // For odd amounts, same file is allowed ONLY for GL files (not HDFC):
+            //   HDFC bank entries are always separate real transactions —
+            //   two HDFC Credit/Debit entries of the same amount must never auto-pair.
+            const catP3_a = getFileCategory(a);
+            const sameFileP3Ok = isOddQuick && catP3_a !== 'HDFC';
+            if (!isDiffFile && !sameFileP3Ok) return;
             
             // Reuse isRound & isOddQuick computed above; also check uniqueness + flag for round figures
             const totalCountOfAmt = state.mergedData.filter(item => {
