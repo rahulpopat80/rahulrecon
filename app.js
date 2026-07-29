@@ -2459,6 +2459,43 @@ function getFileCategory(item) {
     return rawType.replace('PEND-', '');
 }
 
+// Helper to extract or inherit Ref No for a transaction
+function getDisplayRefNo(item) {
+    if (!item) return '';
+    // 1. If item has its own valid refNo, return it
+    if (item.refNo && item.refNo.trim().length >= 4) {
+        return item.refNo.trim();
+    }
+    
+    // 2. If reconciled, check if partner has a valid refNo
+    if (item.matchGroupId) {
+        const partner = state.mergedData.find(t => t.matchGroupId === item.matchGroupId && t.id !== item.id);
+        if (partner && partner.refNo && partner.refNo.trim().length >= 4) {
+            return partner.refNo.trim();
+        }
+    }
+    
+    // 3. Extract from description using UTR / UPI Ref patterns
+    const desc = item.description || '';
+    
+    // Look for alphanumeric strings that resemble UTRs or UPI ref numbers
+    // Split by spaces, hyphens, colons, commas
+    const tokens = desc.split(/[\s\-:,]/);
+    for (let token of tokens) {
+        const cleanToken = token.trim();
+        // Regex for RTGS/NEFT UTR (typically 12 to 22 alphanumeric characters, starts with 4 letters)
+        if (/^[A-Z]{4}[A-Z0-9]{8,18}$/i.test(cleanToken)) {
+            return cleanToken;
+        }
+        // UPI Ref patterns (typically 12 digits starting with 5 or 6 or 4 etc.)
+        if (/^\d{12}$/.test(cleanToken)) {
+            return cleanToken;
+        }
+    }
+    
+    return '';
+}
+
 // Auto Reconciliation Algorithm
 function runAutoReconciliation() {
     if (state.mergedData.length === 0) return;
@@ -3329,13 +3366,11 @@ function renderTable() {
         const isSelected = state.selectedIds.has(item.id);
         const descHtml = highlightDescription(item.description);
         
-        // Highlight REF NO if matched in its partner's description
-        let refNoHtml = item.refNo || '-';
-        if (item.refNo && item.refNo.trim().length >= 4 && item.matchGroupId) {
-            const partner = state.mergedData.find(t => t.matchGroupId === item.matchGroupId && t.id !== item.id);
-            if (partner && partner.description.toLowerCase().includes(item.refNo.toLowerCase().trim())) {
-                refNoHtml = `<span class="ref-no-badge-matched">${item.refNo}</span>`;
-            }
+        // Highlight/Get REF NO if matched, inherited, or extracted
+        const displayRefNo = getDisplayRefNo(item);
+        let refNoHtml = displayRefNo || '-';
+        if (displayRefNo && item.matchGroupId) {
+            refNoHtml = `<span class="ref-no-badge-matched">${displayRefNo}</span>`;
         }
         
         let separatorClass = '';
@@ -4213,7 +4248,7 @@ function exportToExcel(tabType) {
                 c(item.description, dataCell),
                 c(item.type, dataCellCenter),
                 c(item.flag, dataCellCenter),
-                c(item.refNo || '', dataCellCenter),
+                c(getDisplayRefNo(item), dataCellCenter),
                 c(item.actualDate, dataCellCenter),
                 item.creditTrn > 0 ? c(item.creditTrn, dataCellRight) : c('', dataCellRight),
                 item.debitTrn > 0 ? c(item.debitTrn, dataCellRight) : c('', dataCellRight)
@@ -4270,7 +4305,7 @@ function exportToExcel(tabType) {
                 c(item.description, dataCell),
                 c(item.type, dataCellCenter),
                 c(item.flag, dataCellCenter),
-                c(item.refNo || '', dataCellCenter),
+                c(getDisplayRefNo(item), dataCellCenter),
                 c(item.actualDate, dataCellCenter),
                 item.creditTrn > 0 ? c(item.creditTrn, dataCellRight) : c('', dataCellRight),
                 item.debitTrn > 0 ? c(item.debitTrn, dataCellRight) : c('', dataCellRight)
@@ -4337,7 +4372,7 @@ function exportToExcel(tabType) {
                 c(item.description, dataCell),
                 c(item.type, dataCellCenter),
                 c(item.flag, dataCellCenter),
-                c(item.refNo || '', dataCellCenter),
+                c(getDisplayRefNo(item), dataCellCenter),
                 c(item.actualDate, dataCellCenter),
                 item.creditTrn > 0 ? c(item.creditTrn, dataCellRight) : c('', dataCellRight),
                 item.debitTrn > 0 ? c(item.debitTrn, dataCellRight) : c('', dataCellRight)
