@@ -516,7 +516,7 @@ function importNewTransactions(newRows, type) {
             desc = String(getRowValue(row, ['Description', 'Narration', 'Particulars', 'Particular', 'Details']) || '').trim();
             cdFlag = String(getRowValue(row, ['CDFalg', 'CDFlag', 'DrCr', 'C.D.Falg', 'C.D.Flag']) || '').trim().toUpperCase();
             hasCDFlagColumn = getRowValue(row, ['CDFalg', 'CDFlag', 'DrCr', 'C.D.Falg', 'C.D.Flag']) !== '';
-            refNo = String(getRowValue(row, ['ChqRefNo', 'ChequeRefNo', 'ReferenceNo', 'RefNo', 'ChqNo']) || '').trim();
+            refNo = extractRefNoFromRow(row);
             
             if (!dateStr || !desc) return;
             
@@ -2089,6 +2089,29 @@ function getRowValue(row, possibleHeaders) {
     return '';
 }
 
+// Robust helper to extract Reference Number from any bank row
+function extractRefNoFromRow(row) {
+    if (!row) return '';
+    const keys = Object.keys(row);
+    
+    // Look for keys that contain 'chq', 'ref', 'cheque', or 'reference' case-insensitively
+    // excluding keys that are obviously descriptions, dates, or amounts
+    const bestKey = keys.find(k => {
+        const cleanK = k.toLowerCase();
+        if (cleanK.includes('desc') || cleanK.includes('narr') || cleanK.includes('particular') || cleanK.includes('detail') || cleanK.includes('date') || cleanK.includes('amt') || cleanK.includes('credit') || cleanK.includes('debit') || cleanK.includes('bal')) {
+            return false;
+        }
+        return cleanK.includes('ref') || cleanK.includes('chq') || cleanK.includes('cheque');
+    });
+    
+    if (bestKey) {
+        return String(row[bestKey] || '').trim();
+    }
+    
+    // Fallback to the traditional getRowValue
+    return String(getRowValue(row, ['ChqRefNo', 'ChequeRefNo', 'ReferenceNo', 'RefNo', 'ChqNo', 'ChequeNo', 'ChqRef', 'ChequeRef', 'Ref', 'Cheque', 'Reference', 'Chq./Ref.No.']) || '').trim();
+}
+
 // Update Upload Cards UI
 function updateFileUI(fileType, importedCount = 0) {
     const card = document.getElementById(`status-${fileType.toLowerCase()}`);
@@ -2158,7 +2181,7 @@ function mergeFiles() {
             const cdFlag = String(getRowValue(row, ['CDFalg', 'CDFlag', 'DrCr', 'C.D.Falg', 'C.D.Flag']) || '').trim().toUpperCase();
             
             // Extract Reference No
-            const refNo = String(getRowValue(row, ['ChqRefNo', 'ChequeRefNo', 'ReferenceNo', 'RefNo', 'ChqNo']) || '').trim();
+            const refNo = extractRefNoFromRow(row);
             
             // Check if C.D.Falg column is present (Layout A indicator)
             const hasCDFlagColumn = getRowValue(row, ['CDFalg', 'CDFlag', 'DrCr', 'C.D.Falg', 'C.D.Flag']) !== '';
@@ -2246,6 +2269,7 @@ function mergeFiles() {
                     actualDate: actualDate,
                     creditTrn: credit,
                     debitTrn: debit,
+                    refNo: '',
                     flag: autoFlag,
                     day: daysDiff,
                     count: 0,
@@ -2479,8 +2503,8 @@ function getDisplayRefNo(item) {
     const desc = item.description || '';
     
     // Look for alphanumeric strings that resemble UTRs or UPI ref numbers
-    // Split by spaces, hyphens, colons, commas
-    const tokens = desc.split(/[\s\-:,]/);
+    // Split by spaces, hyphens, colons, commas, slashes, parentheses, brackets
+    const tokens = desc.split(/[\s\-:,\/\(\)\[\]\{\}]/);
     for (let token of tokens) {
         const cleanToken = token.trim();
         // Regex for RTGS/NEFT UTR (typically 12 to 22 alphanumeric characters, starts with 4 letters)
@@ -2490,6 +2514,33 @@ function getDisplayRefNo(item) {
         // UPI Ref patterns (typically 12 digits starting with 5 or 6 or 4 etc.)
         if (/^\d{12}$/.test(cleanToken)) {
             return cleanToken;
+        }
+    }
+    
+    // 4. Fallback lookup: Find any matching transaction in the other ledger (by amount and close date) to borrow its Ref No
+    const amt = Math.max(item.creditTrn, item.debitTrn);
+    if (amt > 0) {
+        const isGL = getFileCategory(item) !== 'HDFC';
+        const dateObj = parseDateString(item.date);
+        
+        const candidate = state.mergedData.find(t => {
+            const isCandGL = getFileCategory(t) !== 'HDFC';
+            if (isGL === isCandGL) return false; // Must be opposite category (GL vs HDFC)
+            
+            const candAmt = Math.max(t.creditTrn, t.debitTrn);
+            if (Math.abs(amt - candAmt) > 0.05) return false;
+            
+            const candDate = parseDateString(t.date);
+            if (dateObj && candDate && Math.abs(dateObj - candDate) <= 3 * 24 * 60 * 60 * 1000) {
+                if (t.refNo && t.refNo.trim().length >= 4) {
+                    return true;
+                }
+            }
+            return false;
+        });
+        
+        if (candidate) {
+            return candidate.refNo.trim();
         }
     }
     
