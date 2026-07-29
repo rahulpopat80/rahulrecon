@@ -955,12 +955,15 @@ function saveStateToFirebase(showNotification = false) {
         return;
     }
     
+    // Mark as self-saving immediately to prevent incoming onSnapshot events
+    // from overwriting the state while we wait for the debounce timeout.
+    isSelfSaving = true;
+    
     if (firebaseSaveTimeout) {
         clearTimeout(firebaseSaveTimeout);
     }
     
     firebaseSaveTimeout = setTimeout(() => {
-        isSelfSaving = true;
         
         const filesMetaToSave = {};
         for (let key in state.files) {
@@ -1023,6 +1026,13 @@ function loadStateFromFirebase(silent = false) {
         .then((doc) => {
             if (doc.exists) {
                 const data = doc.data();
+                
+                // Prevent Firebase from downgrading newer local data (fixes refresh reverting issue)
+                if (data.matchGroupCounter !== undefined && data.matchGroupCounter < state.matchGroupCounter) {
+                    console.log("[Firebase] Local state is newer than Cloud state. Skipping overwrite.");
+                    return;
+                }
+                
                 if (data.mergedData && Array.isArray(data.mergedData)) {
                     const firstItem = data.mergedData[0];
                     state.mergedData = (firstItem && 'd' in firstItem) ? decompressMergedData(data.mergedData) : data.mergedData;
@@ -2595,9 +2605,9 @@ function runAutoReconciliation() {
     
     let matchCount = 0;
     
-    // Reset previous auto-matches to start fresh
+    // Reset previous auto-matches to start fresh (but PRESERVE manual matches)
     state.mergedData.forEach(item => {
-        if (item.matchGroupId) {
+        if (item.matchGroupId && !item.matchGroupId.startsWith('manual_group_')) {
             item.reconciled = false;
             item.matchGroupId = null;
         }
