@@ -2483,6 +2483,12 @@ function getFileCategory(item) {
     return rawType.replace('PEND-', '');
 }
 
+// Returns true if an entry is from 3493 or 3496 — these must NEVER be reconciled
+function isGlOnlyEntry(item) {
+    const cat = getFileCategory(item);
+    return cat === '3493' || cat === '3496';
+}
+
 // Helper to extract or inherit Ref No for a transaction
 function getDisplayRefNo(item) {
     if (!item) return '';
@@ -2632,8 +2638,14 @@ function runAutoReconciliation() {
         const amtH = Math.max(h.creditTrn, h.debitTrn);
         
         // Find a matching transaction in the other files
+        // Skip if the HDFC entry itself should not be reconciled (shouldn't normally happen, but guard anyway)
+        if (isGlOnlyEntry(h)) return;
+        
         const match = otherTxns.find(o => {
             if (o.reconciled) return false;
+            
+            // Never auto-reconcile 3493 or 3496 entries
+            if (isGlOnlyEntry(o)) return false;
             
             // Amounts must match exactly
             const amtO = Math.max(o.creditTrn, o.debitTrn);
@@ -2690,6 +2702,9 @@ function runAutoReconciliation() {
                 if (i === j) continue;
                 const b = group[j];
                 if (b.reconciled || matchedIds.has(b.id)) continue;
+                
+                // Never auto-reconcile 3493 or 3496 entries
+                if (isGlOnlyEntry(a) || isGlOnlyEntry(b)) continue;
                 
                 // Must be opposite sides (one Credit and one Debit)
                 const isOppositeSide = (a.creditTrn > 0 && b.debitTrn > 0) || (a.debitTrn > 0 && b.creditTrn > 0);
@@ -2757,7 +2772,9 @@ function runAutoReconciliation() {
             // Must be opposite sides (one Credit and one Debit) and from different files
             const isOppositeSide = (a.creditTrn > 0 && b.debitTrn > 0) || (a.debitTrn > 0 && b.creditTrn > 0);
             const isDiffFile = getFileCategory(a) !== getFileCategory(b);
-            let allowed = isOppositeSide && isDiffFile;
+            // Never auto-reconcile 3493 or 3496 entries
+            const noGlOnly = !isGlOnlyEntry(a) && !isGlOnlyEntry(b);
+            let allowed = isOppositeSide && isDiffFile && noGlOnly;
             
             if (allowed) {
                 const amtVal = parseFloat(amtStr);
@@ -2943,6 +2960,11 @@ function reconcileSingle(itemId) {
     pushToUndoStack();
     const item = state.mergedData.find(t => t.id === itemId);
     if (item && !item.reconciled) {
+        // Block 3493 and 3496 entries from being reconciled
+        if (isGlOnlyEntry(item)) {
+            showToast('3493 અને 3496 ફાઇલ વ્યવહારો ક્યારેય રીકન્સાઇલ ન થઈ શકે.', 'error');
+            return;
+        }
         item.reconciled = true;
         item.matchGroupId = 'manual_group_' + state.matchGroupCounter;
         state.matchGroupCounter++;
@@ -3129,6 +3151,16 @@ function runBulkAction() {
     let count = 0;
     
     if (state.currentTab === 'pending') {
+        // Check if any selected entry is from 3493 or 3496 — block the whole action
+        let hasGlOnly = false;
+        state.selectedIds.forEach(id => {
+            const item = state.mergedData.find(t => t.id === id);
+            if (item && isGlOnlyEntry(item)) hasGlOnly = true;
+        });
+        if (hasGlOnly) {
+            showToast('3493 અને 3496 ફાઇલ વ્યવહારો ક્યારેય રીકન્સાઇલ ન થઈ શકે. પસંદગી બદલો.', 'error');
+            return;
+        }
         const manualGroupId = 'manual_group_' + state.matchGroupCounter;
         state.matchGroupCounter++;
         state.selectedIds.forEach(id => {
