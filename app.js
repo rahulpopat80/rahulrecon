@@ -2715,8 +2715,13 @@ function runAutoReconciliation() {
                 const b = group[j];
                 if (b.reconciled || matchedIds.has(b.id)) continue;
                 
-                // One side must always be HDFC
-                if (!isValidReconPair(a, b)) continue;
+                // Pair rule:
+                //   Odd amounts  → any different-file pair is allowed (GL ↔ GL OK)
+                //   Round amounts → one side must be HDFC
+                const amtVal2 = parseFloat(amtStr);
+                const isRound2 = (amtVal2 % 1000 === 0);
+                const isOdd2 = (Math.round(amtVal2 * 100) % 100 !== 0) || (amtVal2 % 100 !== 0) || !isRound2;
+                if (!isOdd2 && !isValidReconPair(a, b)) continue;
                 
                 // Must be opposite sides (one Credit and one Debit)
                 const isOppositeSide = (a.creditTrn > 0 && b.debitTrn > 0) || (a.debitTrn > 0 && b.creditTrn > 0);
@@ -2781,76 +2786,76 @@ function runAutoReconciliation() {
             
             if (a.reconciled || b.reconciled) return;
             
-            // Must be opposite sides (one Credit and one Debit) and from different files
+            // Basic gates: opposite sides + different files
             const isOppositeSide = (a.creditTrn > 0 && b.debitTrn > 0) || (a.debitTrn > 0 && b.creditTrn > 0);
             const isDiffFile = getFileCategory(a) !== getFileCategory(b);
-            // One side must always be HDFC — validate the pair
-            let allowed = isOppositeSide && isDiffFile && isValidReconPair(a, b);
+            if (!isOppositeSide || !isDiffFile) return;
             
-            if (allowed) {
-                const amtVal = parseFloat(amtStr);
+            const amtVal = parseFloat(amtStr);
+            
+            // Determine if the amount is an odd figure
+            // (has paisa OR is not a multiple of 1000)
+            const isRound = (amtVal % 1000 === 0);
+            const totalCountOfAmt = state.mergedData.filter(item => {
+                const itemAmt = Math.max(item.creditTrn, item.debitTrn).toFixed(2);
+                const isNotHistory = !item.id.startsWith('history_') && item.type !== 'history' && item.parentType !== 'history';
+                return itemAmt === amtStr && isNotHistory;
+            }).length;
+            
+            let isOdd = (Math.round(amtVal * 100) % 100 !== 0) || (amtVal % 100 !== 0) || (!isRound);
+            if (isRound && totalCountOfAmt === 2) {
+                const flagA = (a.flag || 'DAILY').trim().toUpperCase();
+                const flagB = (b.flag || 'DAILY').trim().toUpperCase();
+                if (flagA === flagB) isOdd = true;
+            }
+            
+            // Pair rule:
+            //   Odd amounts  → any different-file pair (GL ↔ GL allowed)
+            //   Round amounts → one side must be HDFC
+            if (!isOdd) {
+                if (!isValidReconPair(a, b)) return;
+            }
+            
+            if (isOdd) {
+                const aDate = parseDateString(a.date);
+                const bDate = parseDateString(b.date);
+                let dateValid = true;
+                if (aDate && bDate) {
+                    const daysDiff = Math.abs(calculateDaysDifference(aDate, bDate));
+                    if (daysDiff > 15) dateValid = false;
+                }
                 
-                // Only match odd figures in Pass 3: has paisa, or not a multiple of 1000.
-                // If it is a round figure (multiple of 1000), we only allow matching if:
-                // 1. It is completely unique (exactly 2 entries of this amount in the entire dataset), AND
-                // 2. Both entries have the exact same category FLAG (e.g. both DAILY, or both NPCI).
-                const isRound = (amtVal % 1000 === 0);
-                const totalCountOfAmt = state.mergedData.filter(item => {
-                    const itemAmt = Math.max(item.creditTrn, item.debitTrn).toFixed(2);
-                    const isNotHistory = !item.id.startsWith('history_') && item.type !== 'history' && item.parentType !== 'history';
-                    return itemAmt === amtStr && isNotHistory;
-                }).length;
-                
-                let isOdd = (Math.round(amtVal * 100) % 100 !== 0) || (amtVal % 100 !== 0) || (!isRound);
-                if (isRound && totalCountOfAmt === 2) {
-                    const flagA = (a.flag || 'DAILY').trim().toUpperCase();
-                    const flagB = (b.flag || 'DAILY').trim().toUpperCase();
-                    if (flagA === flagB) {
-                        isOdd = true;
+                if (dateValid) {
+                    const extractDates = (str) => {
+                        const dates = [];
+                        const regex = /\b(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})\b/g;
+                        let match;
+                        while ((match = regex.exec(str)) !== null) {
+                            let d = match[1].padStart(2, '0');
+                            let m = match[2].padStart(2, '0');
+                            let y = match[3];
+                            if (y.length === 2) y = '20' + y;
+                            dates.push(`${d}/${m}/${y}`);
+                        }
+                        return dates;
+                    };
+                    const descDatesA = extractDates(a.description || '');
+                    const descDatesB = extractDates(b.description || '');
+                    if (descDatesA.length > 0 && descDatesB.length > 0) {
+                        const hasCommonDate = descDatesA.some(d => descDatesB.includes(d));
+                        if (!hasCommonDate) dateValid = false;
                     }
                 }
                 
-                if (isOdd) {
-                    const aDate = parseDateString(a.date);
-                    const bDate = parseDateString(b.date);
-                    let dateValid = true;
-                    if (aDate && bDate) {
-                        const daysDiff = Math.abs(calculateDaysDifference(aDate, bDate));
-                        if (daysDiff > 15) dateValid = false;
-                    }
+                if (dateValid) {
+                    a.reconciled = true;
+                    a.matchGroupId = 'group_' + state.matchGroupCounter;
                     
-                    if (dateValid) {
-                        const extractDates = (str) => {
-                            const dates = [];
-                            const regex = /\b(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})\b/g;
-                            let match;
-                            while ((match = regex.exec(str)) !== null) {
-                                let d = match[1].padStart(2, '0');
-                                let m = match[2].padStart(2, '0');
-                                let y = match[3];
-                                if (y.length === 2) y = '20' + y;
-                                dates.push(`${d}/${m}/${y}`);
-                            }
-                            return dates;
-                        };
-                        const descDatesA = extractDates(a.description || '');
-                        const descDatesB = extractDates(b.description || '');
-                        if (descDatesA.length > 0 && descDatesB.length > 0) {
-                            const hasCommonDate = descDatesA.some(d => descDatesB.includes(d));
-                            if (!hasCommonDate) dateValid = false;
-                        }
-                    }
+                    b.reconciled = true;
+                    b.matchGroupId = 'group_' + state.matchGroupCounter;
                     
-                    if (dateValid) {
-                        a.reconciled = true;
-                        a.matchGroupId = 'group_' + state.matchGroupCounter;
-                        
-                        b.reconciled = true;
-                        b.matchGroupId = 'group_' + state.matchGroupCounter;
-                        
-                        state.matchGroupCounter++;
-                        matchCount++;
-                    }
+                    state.matchGroupCounter++;
+                    matchCount++;
                 }
             }
         }
@@ -2966,18 +2971,11 @@ function deleteTransaction(itemId) {
     }
 }
 
-// Reconcile a single pending transaction
+// Reconcile a single pending transaction (manual — no file-type restriction)
 function reconcileSingle(itemId) {
     pushToUndoStack();
     const item = state.mergedData.find(t => t.id === itemId);
     if (item && !item.reconciled) {
-        // Single-entry reconcile (standalone): only allow if entry is HDFC or 345051;
-        // pure GL (3493/3496) alone should not be marked reconciled without an HDFC partner.
-        const cat = getFileCategory(item);
-        if (cat === '3493' || cat === '3496') {
-            showToast('3493 અથવા 3496 ફાઇલ એન્ટ્રી એકલી રીકન્સાઇલ ન થઈ શકે — HDFC એન્ટ્રી સાથે ચૂંટો.', 'error');
-            return;
-        }
         item.reconciled = true;
         item.matchGroupId = 'manual_group_' + state.matchGroupCounter;
         state.matchGroupCounter++;
@@ -3164,39 +3162,8 @@ function runBulkAction() {
     let count = 0;
     
     if (state.currentTab === 'pending') {
-        // Validate that all selected entries form valid HDFC ↔ GL pairs
-        const selectedItems = [];
-        state.selectedIds.forEach(id => {
-            const item = state.mergedData.find(t => t.id === id);
-            if (item && !item.reconciled) selectedItems.push(item);
-        });
-        
-        if (selectedItems.length >= 2) {
-            // Among the selected entries, check every pair: at least one must be HDFC
-            const cats = selectedItems.map(it => getFileCategory(it));
-            const hasHDFC = cats.includes('HDFC');
-            
-            if (!hasHDFC) {
-                showToast('પસંદ કરેલ એન્ટ્રીઓ માં ઓછામાં ઓછી એક HDFC એન્ટ્રી હોવી જોઇએ. GL ↔ GL રીકન્સાઇલ માન્ય નથી.', 'error');
-                return;
-            }
-            
-            // Also block if all entries are from the same non-HDFC file
-            const uniqueCats = [...new Set(cats)];
-            if (uniqueCats.length === 1 && uniqueCats[0] !== 'HDFC') {
-                showToast(`${uniqueCats[0]} ↔ ${uniqueCats[0]} (એ જ ફાઇલ) રીકન્સાઇલ માન્ય નથી.`, 'error');
-                return;
-            }
-        }
-        
-        // Single 3493/3496 entry selection — not allowed alone
-        if (selectedItems.length === 1) {
-            const singleCat = getFileCategory(selectedItems[0]);
-            if (singleCat === '3493' || singleCat === '3496') {
-                showToast('3493 અથવા 3496 ફાઇલ એન્ટ્રી એકલી રીકન્સાઇલ ન થઈ શકે — HDFC એન્ટ્રી સાથે ચૂંટો.', 'error');
-                return;
-            }
-        }
+        // Manual reconcile — no file-type restriction; user can reconcile any combination.
+        // (Auto-reconcile enforces the HDFC rule; manual is the user's explicit override.)
         const manualGroupId = 'manual_group_' + state.matchGroupCounter;
         state.matchGroupCounter++;
         state.selectedIds.forEach(id => {
