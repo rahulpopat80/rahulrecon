@@ -4138,41 +4138,41 @@ function exportToExcel(tabType) {
         
         // Build 2D array of rows matching BRS template
         const sheetData = [
-            [c('THE JUNAGADH COMMERCIAL CO-OPERATIVE BANK LTD.', titleStyle), '', '', '', '', '', ''],
-            [c(`HDFC RECONCILIATION STATEMENT AS ON ${formattedCurrentDate}`, subtitleStyle), '', '', '', '', '', ''],
-            [c('HDFC BANK BALANCE', noBorderBold), '', '', '', '', '', c(hdfc_bal, boxBoldRight)],
-            [c('OUR BANK GL BALANCE', noBorderBold), '', '', '', '', '', c(gl_345051_bal, boxBoldRight)],
-            ['', '', '', '', '', '', ''], // Spacer row (empty, no borders)
+            [c('THE JUNAGADH COMMERCIAL CO-OPERATIVE BANK LTD.', titleStyle), '', '', '', '', '', '', ''],
+            [c(`HDFC RECONCILIATION STATEMENT AS ON ${formattedCurrentDate}`, subtitleStyle), '', '', '', '', '', '', ''],
+            [c('HDFC BANK BALANCE', noBorderBold), '', '', '', '', '', '', c(hdfc_bal, boxBoldRight)],
+            [c('OUR BANK GL BALANCE', noBorderBold), '', '', '', '', '', '', c(gl_345051_bal, boxBoldRight)],
+            ['', '', '', '', '', '', '', ''], // Spacer row (empty, no borders)
             
             // Row 7: Table Headers
-            [c('Date', headerStyle), c('Description', headerStyle), c('Side', headerStyle), c('Sign', headerStyle), c('Credit Pending', headerStyle), c('Debit Pending', headerStyle), c('Net Balance', headerStyle)],
+            [c('Date', headerStyle), c('Description', headerStyle), c('Side', headerStyle), c('Sign', headerStyle), c('Credit Pending', headerStyle), c('Debit Pending', headerStyle), '', c('Net Balance', headerStyle)],
             
             // Row 8: Our Site row
-            [c(fromDateStr, boxCenter), c('-', boxStyle), c('Our Site', boxCenter), c('', boxCenter), c('', boxCenter), c('', boxCenter), c(val_row5, boxRight)],
+            [c(fromDateStr, boxCenter), c('-', boxStyle), c('Our Site', boxCenter), c('', boxCenter), c('', boxCenter), c('', boxCenter), '', c(val_row5, boxRight)],
             
             // Row 9: Transaction at our site but not credit/Debit by Bank
-            [c('', boxCenter), c('Transaction at our site but not credit/Debit by Bank', boxStyleWrap), c('Opp.Bank', boxCenter), c('+', boxCenter), c(gl_pending_credits, boxRight), c(gl_pending_debits, boxRight), c(val_row6, boxRight)],
+            [c('', boxCenter), c('Transaction at our site but not credit/Debit by Bank', boxStyleWrap), c('Opp.Bank', boxCenter), c('+', boxCenter), c(gl_pending_credits, boxRight), c(gl_pending_debits, boxRight), '', c(val_row6, boxRight)],
             
             // Row 10: Transaction at hdfc Bank but not effect in Our GL Balance
-            [c('', boxCenter), c('Transaction at hdfc Bank but not effect in Our GL Balance', boxStyleWrap), c('Our Bank', boxCenter), c('+', boxCenter), c(hdfc_pending_credits, boxRight), c(hdfc_pending_debits, boxRight), c(val_row7, boxRight)],
+            [c('', boxCenter), c('Transaction at hdfc Bank but not effect in Our GL Balance', boxStyleWrap), c('Our Bank', boxCenter), c('+', boxCenter), c(hdfc_pending_credits, boxRight), c(hdfc_pending_debits, boxRight), '', c(val_row7, boxRight)],
             
             // Row 11: Net Balance as per our side GL Statment
-            ['', c('Net Balance as per our side GL Statment', labelStyle), c('', labelStyle), c('', labelStyle), c('', labelStyle), c('', labelStyle), c(val_row7, boxRight)],
+            ['', c('Net Balance as per our side GL Statment', labelStyle), c('', labelStyle), c('', labelStyle), c('', labelStyle), c('', labelStyle), '', c(val_row7, boxRight)],
             
             // Row 12: Net Balance as per Other Side (HDFC BANK)
-            ['', c('Net Balance as per Other Side (HDFC BANK)', labelStyle), c('', labelStyle), c('', labelStyle), c('', labelStyle), c('', labelStyle), c(hdfc_bal, boxRight)],
+            ['', c('Net Balance as per Other Side (HDFC BANK)', labelStyle), c('', labelStyle), c('', labelStyle), c('', labelStyle), c('', labelStyle), '', c(hdfc_bal, boxRight)],
             
             // Row 13: Difference if any
-            ['', c('Difference if any', labelBoldStyle), c('', labelBoldStyle), c('', labelBoldStyle), c('', labelBoldStyle), c('', labelBoldStyle), c(diff_any, boxBoldRight)],
+            ['', c('Difference if any', labelBoldStyle), c('', labelBoldStyle), c('', labelBoldStyle), c('', labelBoldStyle), c('', labelBoldStyle), '', c(diff_any, boxBoldRight)],
             
             // Row 14: GL 3493
-            ['', c('GL 3493', labelStyle), c('', labelStyle), c('', labelStyle), c('', labelStyle), c('', labelStyle), c(gl_3493_bal, boxRight)],
+            ['', c('GL 3493', labelStyle), c('', labelStyle), c('', labelStyle), c('', labelStyle), c('', labelStyle), '', c(gl_3493_bal, boxRight)],
             
             // Row 15: GL 3496
-            ['', c('GL 3496', labelStyle), c('', labelStyle), c('', labelStyle), c('', labelStyle), c('', labelStyle), c(gl_3496_bal, boxRight)],
+            ['', c('GL 3496', labelStyle), c('', labelStyle), c('', labelStyle), c('', labelStyle), c('', labelStyle), '', c(gl_3496_bal, boxRight)],
             
             // Row 16: TOTAL UNRECONCILED DIFFERENCE
-            ['', c('TOTAL UNRECONCILED DIFFERENCE', labelBoldStyle), c('', labelBoldStyle), c('', labelBoldStyle), c('', labelBoldStyle), c('', labelBoldStyle), c(total_unreconciled_diff, boxBoldRight)],
+            ['', c('TOTAL UNRECONCILED DIFFERENCE', labelBoldStyle), c('', labelBoldStyle), c('', labelBoldStyle), c('', labelBoldStyle), c('', labelBoldStyle), '', c(total_unreconciled_diff, boxBoldRight)],
             
             [], // Row 17 (blank spacer)
             []  // Row 18 (blank spacer)
@@ -4203,8 +4203,8 @@ function exportToExcel(tabType) {
         });
         
         sheetData.push(
-            [c('Transaction at our site but not credit/Debit by Bank', sectionSubtitleStyle), '', '', '', '', '', ''],
-            [c('DATE', headerStyle), c('DISCRIPTION', headerStyle), c('TYPE', headerStyle), c('FLAG', headerStyle), c('ACTUAL DATE', headerStyle), c('CREDIT TRN', headerStyle), c('DEBIT TRN', headerStyle)]
+            [c('Transaction at our site but not credit/Debit by Bank', sectionSubtitleStyle), '', '', '', '', '', '', ''],
+            [c('DATE', headerStyle), c('DISCRIPTION', headerStyle), c('TYPE', headerStyle), c('FLAG', headerStyle), c('REF NO', headerStyle), c('ACTUAL DATE', headerStyle), c('CREDIT TRN', headerStyle), c('DEBIT TRN', headerStyle)]
         );
         
         glList.forEach(item => {
@@ -4213,6 +4213,7 @@ function exportToExcel(tabType) {
                 c(item.description, dataCell),
                 c(item.type, dataCellCenter),
                 c(item.flag, dataCellCenter),
+                c(item.refNo || '', dataCellCenter),
                 c(item.actualDate, dataCellCenter),
                 item.creditTrn > 0 ? c(item.creditTrn, dataCellRight) : c('', dataCellRight),
                 item.debitTrn > 0 ? c(item.debitTrn, dataCellRight) : c('', dataCellRight)
@@ -4221,6 +4222,7 @@ function exportToExcel(tabType) {
         
         sheetData.push([
             c('TOTAL', totalHeaderStyle),
+            c('', totalHeaderStyle),
             c('', totalHeaderStyle),
             c('', totalHeaderStyle),
             c('', totalHeaderStyle),
@@ -4258,8 +4260,8 @@ function exportToExcel(tabType) {
         });
         
         sheetData.push(
-            [c('Transaction at hdfc Bank but not effect in Our GL Balance', sectionSubtitleStyle), '', '', '', '', '', ''],
-            [c('DATE', headerStyle), c('DISCRIPTION', headerStyle), c('TYPE', headerStyle), c('FLAG', headerStyle), c('ACTUAL DATE', headerStyle), c('CREDIT TRN', headerStyle), c('DEBIT TRN', headerStyle)]
+            [c('Transaction at hdfc Bank but not effect in Our GL Balance', sectionSubtitleStyle), '', '', '', '', '', '', ''],
+            [c('DATE', headerStyle), c('DISCRIPTION', headerStyle), c('TYPE', headerStyle), c('FLAG', headerStyle), c('REF NO', headerStyle), c('ACTUAL DATE', headerStyle), c('CREDIT TRN', headerStyle), c('DEBIT TRN', headerStyle)]
         );
         
         hdfcList.forEach(item => {
@@ -4268,6 +4270,7 @@ function exportToExcel(tabType) {
                 c(item.description, dataCell),
                 c(item.type, dataCellCenter),
                 c(item.flag, dataCellCenter),
+                c(item.refNo || '', dataCellCenter),
                 c(item.actualDate, dataCellCenter),
                 item.creditTrn > 0 ? c(item.creditTrn, dataCellRight) : c('', dataCellRight),
                 item.debitTrn > 0 ? c(item.debitTrn, dataCellRight) : c('', dataCellRight)
@@ -4280,6 +4283,7 @@ function exportToExcel(tabType) {
             c('', totalHeaderStyle),
             c('', totalHeaderStyle),
             c('', totalHeaderStyle),
+            c('', totalHeaderStyle),
             c(hdfc_total_credits, totalHeaderRightStyle),
             c(hdfc_total_debits, totalHeaderRightStyle)
         ]);
@@ -4288,16 +4292,16 @@ function exportToExcel(tabType) {
         sheetData.push(
             [],
             [],
-            [c('THE JUNAGADH COMMERCIAL CO-OPERATIVE BANK LTD.', footerBankStyle), '', '', '', '', '', ''],
+            [c('THE JUNAGADH COMMERCIAL CO-OPERATIVE BANK LTD.', footerBankStyle), '', '', '', '', '', '', ''],
             [],
-            ['', c('OFFICER', footerRoleStyle), '', '', c('MANAGER', footerRoleStyle), '', '']
+            ['', c('OFFICER', footerRoleStyle), '', '', '', c('MANAGER', footerRoleStyle), '', '']
         );
         
         worksheet = XLSX.utils.aoa_to_sheet(sheetData);
         
         const merges = [
-            { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
-            { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } }
+            { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+            { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } }
         ];
         
         sheetData.forEach((row, idx) => {
@@ -4306,14 +4310,14 @@ function exportToExcel(tabType) {
                 if (str === 'Transaction at our site but not credit/Debit by Bank' || 
                     str === 'Transaction at hdfc Bank but not effect in Our GL Balance' || 
                     str === 'THE JUNAGADH COMMERCIAL CO-OPERATIVE BANK LTD.') {
-                    merges.push({ s: { r: idx, c: 0 }, e: { r: idx, c: 6 } });
+                    merges.push({ s: { r: idx, c: 0 }, e: { r: idx, c: 7 } });
                 }
             }
             if (row && row[1] && typeof row[1] === 'object' && row[1].v === 'OFFICER') {
                 merges.push({ s: { r: idx, c: 1 }, e: { r: idx, c: 2 } });
             }
-            if (row && row[4] && typeof row[4] === 'object' && row[4].v === 'MANAGER') {
-                merges.push({ s: { r: idx, c: 4 }, e: { r: idx, c: 5 } });
+            if (row && row[5] && typeof row[5] === 'object' && row[5].v === 'MANAGER') {
+                merges.push({ s: { r: idx, c: 5 }, e: { r: idx, c: 6 } });
             }
         });
         
@@ -4718,8 +4722,8 @@ function processExcelFile(file) {
                                 parsedDate = formatDateToSlash(excelDate);
                             }
                             
-                            const credit = parseFloat(String(row[5] || '').replace(/,/g, '')) || 0;
-                            const debit = parseFloat(String(row[6] || '').replace(/,/g, '')) || 0;
+                            const credit = parseFloat(String(row[6] || '').replace(/,/g, '')) || 0;
+                            const debit = parseFloat(String(row[7] || '').replace(/,/g, '')) || 0;
                             
                             if (credit === 0 && debit === 0) return;
                             
@@ -4729,8 +4733,9 @@ function processExcelFile(file) {
                                 type: type,
                                 credit: credit,
                                 debit: debit,
+                                refNo: String(row[4] || '').trim(),
                                 flag: String(row[3] || 'DAILY').trim().toUpperCase(),
-                                actualDate: formatDateToSlash(String(row[4] || parsedDate).trim())
+                                actualDate: formatDateToSlash(String(row[5] || parsedDate).trim())
                             });
                         });
                     }
@@ -4752,6 +4757,7 @@ function processExcelFile(file) {
                             actualDate: a.actualDate || a.date,
                             creditTrn: a.credit,
                             debitTrn: a.debit,
+                            refNo: a.refNo || '',
                             flag: a.flag || 'DAILY',
                             day: 0,
                             count: 0,
@@ -4768,6 +4774,7 @@ function processExcelFile(file) {
                             actualDate: b.actualDate || b.date,
                             creditTrn: b.credit,
                             debitTrn: b.debit,
+                            refNo: b.refNo || '',
                             flag: b.flag || 'DAILY',
                             day: 0,
                             count: 0,
@@ -4825,13 +4832,13 @@ function processExcelFile(file) {
                         parsedDate = formatDateToSlash(excelDate);
                     }
                     
-                    const credit = parseFloat(String(row[5] || '').replace(/,/g, '')) || 0;
-                    const debit = parseFloat(String(row[6] || '').replace(/,/g, '')) || 0;
+                    const credit = parseFloat(String(row[6] || '').replace(/,/g, '')) || 0;
+                    const debit = parseFloat(String(row[7] || '').replace(/,/g, '')) || 0;
                     
                     if (credit === 0 && debit === 0) return;
                     
                     const excelFlag = String(row[3] || 'DAILY').trim().toUpperCase();
-                    let finalActualDate = formatDateToSlash(String(row[4] || parsedDate).trim());
+                    let finalActualDate = formatDateToSlash(String(row[5] || parsedDate).trim());
                     if (excelFlag === 'NPCI') {
                         const descDate = extractDateFromDescription(desc);
                         if (descDate) {
@@ -4845,6 +4852,7 @@ function processExcelFile(file) {
                         type: type,
                         credit: credit,
                         debit: debit,
+                        refNo: String(row[4] || '').trim(),
                         flag: excelFlag,
                         actualDate: finalActualDate
                     });
@@ -4909,6 +4917,7 @@ function processExcelFile(file) {
                     actualDate: excel.actualDate || excel.date,
                     creditTrn: excel.credit,
                     debitTrn: excel.debit,
+                    refNo: excel.refNo || '',
                     flag: excel.flag || 'DAILY',
                     day: 0,
                     count: 0,
@@ -4988,8 +4997,8 @@ function autoSyncWithExcel() {
                         parsedDate = formatDateToSlash(excelDate);
                     }
                     
-                    const credit = parseFloat(String(row[5] || '').replace(/,/g, '')) || 0;
-                    const debit = parseFloat(String(row[6] || '').replace(/,/g, '')) || 0;
+                    const credit = parseFloat(String(row[6] || '').replace(/,/g, '')) || 0;
+                    const debit = parseFloat(String(row[7] || '').replace(/,/g, '')) || 0;
                     
                     if (credit === 0 && debit === 0) return;
                     
@@ -4999,8 +5008,9 @@ function autoSyncWithExcel() {
                         type: type,
                         credit: credit,
                         debit: debit,
+                        refNo: String(row[4] || '').trim(),
                         flag: String(row[3] || 'DAILY').trim().toUpperCase(),
-                        actualDate: formatDateToSlash(String(row[4] || parsedDate).trim())
+                        actualDate: formatDateToSlash(String(row[5] || parsedDate).trim())
                     });
                 });
             });
