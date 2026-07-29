@@ -1109,6 +1109,21 @@ body {
     background-color: rgba(16, 185, 129, 0.22);
 }
 
+/* Ref No-based reconciliation: golden/amber badge shown on BOTH credit & debit sides */
+.ref-no-badge-reflink {
+    color: #b45309 !important;
+    background-color: rgba(251, 191, 36, 0.15) !important;
+    border: 1px solid rgba(251, 191, 36, 0.55) !important;
+    animation: reflink-pulse 2s ease-in-out infinite;
+}
+.ref-no-badge-reflink:hover {
+    background-color: rgba(251, 191, 36, 0.28) !important;
+}
+@keyframes reflink-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+    50%       { box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.25); }
+}
+
 .desc-ref-highlight {
     color: var(--success);
     font-weight: 700;

@@ -2483,10 +2483,21 @@ function getFileCategory(item) {
     return rawType.replace('PEND-', '');
 }
 
-// Returns true if an entry is from 3493 or 3496 — these must NEVER be reconciled
-function isGlOnlyEntry(item) {
-    const cat = getFileCategory(item);
-    return cat === '3493' || cat === '3496';
+/**
+ * Reconciliation pair rules:
+ *   ✓  HDFC  ↔  345051
+ *   ✓  HDFC  ↔  3493
+ *   ✓  HDFC  ↔  3496
+ *   ✗  Any same-file pair
+ *   ✗  GL ↔ GL pairs (3493↔3496, 345051↔3493, etc.)
+ *   → One side of every pair MUST always be HDFC.
+ */
+function isValidReconPair(a, b) {
+    const catA = getFileCategory(a);
+    const catB = getFileCategory(b);
+    const oneIsHDFC = catA === 'HDFC' || catB === 'HDFC';
+    const differentFiles = catA !== catB;
+    return oneIsHDFC && differentFiles;
 }
 
 // Helper to extract or inherit Ref No for a transaction
@@ -2638,14 +2649,12 @@ function runAutoReconciliation() {
         const amtH = Math.max(h.creditTrn, h.debitTrn);
         
         // Find a matching transaction in the other files
-        // Skip if the HDFC entry itself should not be reconciled (shouldn't normally happen, but guard anyway)
-        if (isGlOnlyEntry(h)) return;
-        
+        // h is always an HDFC entry (filtered above), so no need to guard it separately
         const match = otherTxns.find(o => {
             if (o.reconciled) return false;
             
-            // Never auto-reconcile 3493 or 3496 entries
-            if (isGlOnlyEntry(o)) return false;
+            // One side must always be HDFC — pair must be valid
+            if (!isValidReconPair(h, o)) return false;
             
             // Amounts must match exactly
             const amtO = Math.max(o.creditTrn, o.debitTrn);
@@ -2660,11 +2669,14 @@ function runAutoReconciliation() {
         });
         
         if (match) {
+            const gid = 'group_' + state.matchGroupCounter;
             h.reconciled = true;
-            h.matchGroupId = 'group_' + state.matchGroupCounter;
+            h.matchGroupId = gid;
+            h.refNoMatched = true;   // matched via Ref No — highlight badge on both sides
             
             match.reconciled = true;
-            match.matchGroupId = 'group_' + state.matchGroupCounter;
+            match.matchGroupId = gid;
+            match.refNoMatched = true; // inherit highlight on partner
             
             state.matchGroupCounter++;
             matchCount++;
@@ -2703,8 +2715,8 @@ function runAutoReconciliation() {
                 const b = group[j];
                 if (b.reconciled || matchedIds.has(b.id)) continue;
                 
-                // Never auto-reconcile 3493 or 3496 entries
-                if (isGlOnlyEntry(a) || isGlOnlyEntry(b)) continue;
+                // One side must always be HDFC
+                if (!isValidReconPair(a, b)) continue;
                 
                 // Must be opposite sides (one Credit and one Debit)
                 const isOppositeSide = (a.creditTrn > 0 && b.debitTrn > 0) || (a.debitTrn > 0 && b.creditTrn > 0);
@@ -2772,9 +2784,8 @@ function runAutoReconciliation() {
             // Must be opposite sides (one Credit and one Debit) and from different files
             const isOppositeSide = (a.creditTrn > 0 && b.debitTrn > 0) || (a.debitTrn > 0 && b.creditTrn > 0);
             const isDiffFile = getFileCategory(a) !== getFileCategory(b);
-            // Never auto-reconcile 3493 or 3496 entries
-            const noGlOnly = !isGlOnlyEntry(a) && !isGlOnlyEntry(b);
-            let allowed = isOppositeSide && isDiffFile && noGlOnly;
+            // One side must always be HDFC — validate the pair
+            let allowed = isOppositeSide && isDiffFile && isValidReconPair(a, b);
             
             if (allowed) {
                 const amtVal = parseFloat(amtStr);
@@ -2960,9 +2971,11 @@ function reconcileSingle(itemId) {
     pushToUndoStack();
     const item = state.mergedData.find(t => t.id === itemId);
     if (item && !item.reconciled) {
-        // Block 3493 and 3496 entries from being reconciled
-        if (isGlOnlyEntry(item)) {
-            showToast('3493 અને 3496 ફાઇલ વ્યવહારો ક્યારેય રીકન્સાઇલ ન થઈ શકે.', 'error');
+        // Single-entry reconcile (standalone): only allow if entry is HDFC or 345051;
+        // pure GL (3493/3496) alone should not be marked reconciled without an HDFC partner.
+        const cat = getFileCategory(item);
+        if (cat === '3493' || cat === '3496') {
+            showToast('3493 અથવા 3496 ફાઇલ એન્ટ્રી એકલી રીકન્સાઇલ ન થઈ શકે — HDFC એન્ટ્રી સાથે ચૂંટો.', 'error');
             return;
         }
         item.reconciled = true;
@@ -3151,15 +3164,38 @@ function runBulkAction() {
     let count = 0;
     
     if (state.currentTab === 'pending') {
-        // Check if any selected entry is from 3493 or 3496 — block the whole action
-        let hasGlOnly = false;
+        // Validate that all selected entries form valid HDFC ↔ GL pairs
+        const selectedItems = [];
         state.selectedIds.forEach(id => {
             const item = state.mergedData.find(t => t.id === id);
-            if (item && isGlOnlyEntry(item)) hasGlOnly = true;
+            if (item && !item.reconciled) selectedItems.push(item);
         });
-        if (hasGlOnly) {
-            showToast('3493 અને 3496 ફાઇલ વ્યવહારો ક્યારેય રીકન્સાઇલ ન થઈ શકે. પસંદગી બદલો.', 'error');
-            return;
+        
+        if (selectedItems.length >= 2) {
+            // Among the selected entries, check every pair: at least one must be HDFC
+            const cats = selectedItems.map(it => getFileCategory(it));
+            const hasHDFC = cats.includes('HDFC');
+            
+            if (!hasHDFC) {
+                showToast('પસંદ કરેલ એન્ટ્રીઓ માં ઓછામાં ઓછી એક HDFC એન્ટ્રી હોવી જોઇએ. GL ↔ GL રીકન્સાઇલ માન્ય નથી.', 'error');
+                return;
+            }
+            
+            // Also block if all entries are from the same non-HDFC file
+            const uniqueCats = [...new Set(cats)];
+            if (uniqueCats.length === 1 && uniqueCats[0] !== 'HDFC') {
+                showToast(`${uniqueCats[0]} ↔ ${uniqueCats[0]} (એ જ ફાઇલ) રીકન્સાઇલ માન્ય નથી.`, 'error');
+                return;
+            }
+        }
+        
+        // Single 3493/3496 entry selection — not allowed alone
+        if (selectedItems.length === 1) {
+            const singleCat = getFileCategory(selectedItems[0]);
+            if (singleCat === '3493' || singleCat === '3496') {
+                showToast('3493 અથવા 3496 ફાઇલ એન્ટ્રી એકલી રીકન્સાઇલ ન થઈ શકે — HDFC એન્ટ્રી સાથે ચૂંટો.', 'error');
+                return;
+            }
         }
         const manualGroupId = 'manual_group_' + state.matchGroupCounter;
         state.matchGroupCounter++;
@@ -3453,7 +3489,12 @@ function renderTable() {
         const displayRefNo = getDisplayRefNo(item);
         let refNoHtml = displayRefNo || '-';
         if (displayRefNo && item.matchGroupId) {
-            refNoHtml = `<span class="ref-no-badge-matched">${displayRefNo}</span>`;
+            if (item.refNoMatched) {
+                // Ref-No-based reconciliation: show a distinct highlighted badge on BOTH sides
+                refNoHtml = `<span class="ref-no-badge-matched ref-no-badge-reflink" title="Ref No ઉપરથી મેળવણી">🔗 ${displayRefNo}</span>`;
+            } else {
+                refNoHtml = `<span class="ref-no-badge-matched">${displayRefNo}</span>`;
+            }
         }
         
         let separatorClass = '';
