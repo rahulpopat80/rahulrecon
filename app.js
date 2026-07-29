@@ -563,7 +563,7 @@ function importNewTransactions(newRows, type) {
             }
             
             state.mergedData.push({
-                id: 'history_' + index,
+                id: 'history_' + Math.random().toString(36).substr(2, 9),
                 date: formatDateToSlash(dateStr),
                 description: desc,
                 type: typeVal || 'PEND',
@@ -607,7 +607,7 @@ function importNewTransactions(newRows, type) {
             existingPool[candidateKey]--;
         } else {
             state.mergedData.push({
-                id: type.toLowerCase() + '_' + index,
+                id: type.toLowerCase() + '_' + Math.random().toString(36).substr(2, 9),
                 date: formatDateToSlash(dateStr),
                 description: desc,
                 type: type,
@@ -817,6 +817,7 @@ function triggerUndo() {
     try {
         const prev = JSON.parse(state.undoStack.pop());
         state.mergedData = decompressMergedData(prev.mergedData);
+        fixDuplicateIds();
         state.matchGroupCounter = prev.matchGroupCounter || 0;
         state.selectedIds = new Set(prev.selectedIds || []);
         
@@ -927,6 +928,7 @@ function listenToCloudChanges() {
                 if (data.mergedData && Array.isArray(data.mergedData)) {
                     const firstItem = data.mergedData[0];
                     state.mergedData = (firstItem && 'd' in firstItem) ? decompressMergedData(data.mergedData) : data.mergedData;
+                    fixDuplicateIds();
                     if (data.currentDate) {
                         state.currentDate = data.currentDate;
                         if (currentDateInput) currentDateInput.value = data.currentDate;
@@ -1036,6 +1038,7 @@ function loadStateFromFirebase(silent = false) {
                 if (data.mergedData && Array.isArray(data.mergedData)) {
                     const firstItem = data.mergedData[0];
                     state.mergedData = (firstItem && 'd' in firstItem) ? decompressMergedData(data.mergedData) : data.mergedData;
+                    fixDuplicateIds();
                     if (data.currentDate) {
                         state.currentDate = data.currentDate;
                         if (currentDateInput) currentDateInput.value = data.currentDate;
@@ -1642,6 +1645,18 @@ function calculateCurrentDifference() {
     return diff_any - other_gls_sum;
 }
 
+// Ensure all IDs are strictly unique (fixes legacy duplicate ID corruption)
+function fixDuplicateIds() {
+    if (!state.mergedData) return;
+    const seenIds = new Set();
+    state.mergedData.forEach(item => {
+        if (!item.id || seenIds.has(item.id)) {
+            item.id = 'fixed_' + Math.random().toString(36).substr(2, 9);
+        }
+        seenIds.add(item.id);
+    });
+}
+
 // Restore state from localStorage
 function loadStateFromLocalStorage() {
     const savedDate = localStorage.getItem('recon_current_date');
@@ -1661,6 +1676,7 @@ function loadStateFromLocalStorage() {
         } else {
             state.mergedData = parsed || [];
         }
+        fixDuplicateIds();
         state.matchGroupCounter = parseInt(savedMatchCounter) || 0;
     }
     
@@ -5060,7 +5076,7 @@ function processExcelFile(file) {
                 if (excelMatched[idx]) return;
                 
                 state.mergedData.push({
-                    id: 'history_' + idx,
+                    id: 'history_' + Math.random().toString(36).substr(2, 9),
                     date: excel.date,
                     description: excel.description,
                     type: excel.type,
@@ -5208,7 +5224,7 @@ function autoSyncWithExcel() {
                 if (excelMatched[idx]) return;
                 
                 state.mergedData.push({
-                    id: 'history_' + idx,
+                    id: 'history_' + Math.random().toString(36).substr(2, 9),
                     date: excel.date,
                     description: excel.description,
                     type: excel.type,
