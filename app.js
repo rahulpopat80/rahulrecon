@@ -97,11 +97,239 @@ const rbiStatementDateLabel = document.getElementById('rbi-statement-date-label'
 const btnExportRbi = document.getElementById('btn-export-rbi');
 
 // Event Listeners
+// ==================================================================
+// AUTHENTICATION SYSTEM (NON-SKIPPABLE)
+// User ID: Rahul | Password: 22780
+// ==================================================================
+const AUTH_CONFIG = {
+    USER_ID: 'Rahul',
+    PASSWORD: '22780',
+    STORAGE_KEY: 'recon_auth_user',
+    TIMESTAMP_KEY: 'recon_auth_time'
+};
+
+let isAppInitialized = false;
+
+function checkAuthStatus() {
+    try {
+        const localUser = localStorage.getItem(AUTH_CONFIG.STORAGE_KEY);
+        const sessionUser = sessionStorage.getItem(AUTH_CONFIG.STORAGE_KEY);
+        return (localUser === AUTH_CONFIG.USER_ID || sessionUser === AUTH_CONFIG.USER_ID);
+    } catch (e) {
+        return false;
+    }
+}
+
+function initAuth() {
+    const authOverlay = document.getElementById('auth-overlay');
+    const authForm = document.getElementById('auth-form');
+    const authUsernameInput = document.getElementById('auth-username');
+    const authPasswordInput = document.getElementById('auth-password');
+    const btnTogglePassword = document.getElementById('btn-toggle-password');
+    const iconTogglePassword = document.getElementById('icon-toggle-password');
+    const authRememberMe = document.getElementById('auth-remember-me');
+    const authError = document.getElementById('auth-error');
+    const authErrorText = document.getElementById('auth-error-text');
+    const authCard = document.getElementById('auth-card');
+    const btnSidebarLogout = document.getElementById('btn-sidebar-logout');
+    const btnHeaderLogout = document.getElementById('btn-header-logout');
+
+    // Prevent closing overlay via Escape key (Non-Skippable)
+    window.addEventListener('keydown', (e) => {
+        if (!checkAuthStatus() && e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    });
+
+    // Toggle Password Visibility
+    if (btnTogglePassword && authPasswordInput) {
+        btnTogglePassword.addEventListener('click', (e) => {
+            e.preventDefault();
+            const isPassword = authPasswordInput.getAttribute('type') === 'password';
+            authPasswordInput.setAttribute('type', isPassword ? 'text' : 'password');
+            if (iconTogglePassword) {
+                iconTogglePassword.setAttribute('data-lucide', isPassword ? 'eye-off' : 'eye');
+                if (window.lucide && lucide.createIcons) {
+                    lucide.createIcons();
+                }
+            }
+        });
+    }
+
+    // Clear error styling on input
+    [authUsernameInput, authPasswordInput].forEach(inp => {
+        if (!inp) return;
+        inp.addEventListener('input', () => {
+            if (authError) authError.style.display = 'none';
+            inp.classList.remove('input-error');
+        });
+    });
+
+    // Form submission / Validation
+    function handleLoginSubmit() {
+        const enteredUser = (authUsernameInput ? authUsernameInput.value : '').trim();
+        const enteredPass = (authPasswordInput ? authPasswordInput.value : '').trim();
+
+        // Validate: User ID 'Rahul' (case-insensitive) and Password '22780'
+        const isUserValid = (enteredUser.toLowerCase() === AUTH_CONFIG.USER_ID.toLowerCase());
+        const isPassValid = (enteredPass === AUTH_CONFIG.PASSWORD);
+
+        if (isUserValid && isPassValid) {
+            // Valid credentials
+            if (authError) authError.style.display = 'none';
+            if (authUsernameInput) authUsernameInput.classList.remove('input-error');
+            if (authPasswordInput) authPasswordInput.classList.remove('input-error');
+
+            const remember = authRememberMe ? authRememberMe.checked : true;
+            try {
+                if (remember) {
+                    localStorage.setItem(AUTH_CONFIG.STORAGE_KEY, AUTH_CONFIG.USER_ID);
+                    localStorage.setItem(AUTH_CONFIG.TIMESTAMP_KEY, Date.now().toString());
+                } else {
+                    sessionStorage.setItem(AUTH_CONFIG.STORAGE_KEY, AUTH_CONFIG.USER_ID);
+                }
+            } catch (err) {
+                console.warn('[Auth] Storage write warning:', err);
+            }
+
+            document.body.classList.add('authenticated');
+            if (authOverlay) authOverlay.style.display = 'none';
+
+            // Launch or render app
+            if (!isAppInitialized) {
+                initApp();
+            } else {
+                if (typeof renderTable === 'function') renderTable();
+                if (typeof updateBalances === 'function') updateBalances();
+            }
+
+            if (window.lucide && lucide.createIcons) {
+                lucide.createIcons();
+            }
+
+            showToast('સ્વાગત છે, Rahul! સફળતાપૂર્વક લૉગિન થયું.', 'success');
+        } else {
+            // Invalid credentials
+            if (authError) {
+                authError.style.display = 'flex';
+                if (!isUserValid && !isPassValid) {
+                    if (authErrorText) authErrorText.textContent = 'અમાન્ય યુઝર આઈડી અને પાસવર્ડ! કૃપા કરીને સાચી વિગતો દાખલ કરો.';
+                } else if (!isUserValid) {
+                    if (authErrorText) authErrorText.textContent = 'અમાન્ય યુઝર આઈડી! સાચો યુઝર આઈડી દાખલ કરો.';
+                } else {
+                    if (authErrorText) authErrorText.textContent = 'ખોટો પાસવર્ડ! કૃપા કરીને ફરી પ્રયાસ કરો.';
+                }
+            }
+
+            if (authCard) {
+                authCard.classList.remove('shake');
+                void authCard.offsetWidth; // Trigger reflow for animation restart
+                authCard.classList.add('shake');
+            }
+
+            if (!isUserValid && authUsernameInput) {
+                authUsernameInput.classList.add('input-error');
+                authUsernameInput.focus();
+                authUsernameInput.select();
+            } else if (!isPassValid && authPasswordInput) {
+                authPasswordInput.classList.add('input-error');
+                authPasswordInput.focus();
+                authPasswordInput.select();
+            }
+
+            if (window.lucide && lucide.createIcons) {
+                lucide.createIcons();
+            }
+        }
+    }
+
+    if (authForm) {
+        authForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleLoginSubmit();
+        });
+    }
+
+    const btnLogin = document.getElementById('btn-login');
+    if (btnLogin) {
+        btnLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleLoginSubmit();
+        });
+    }
+
+    // Logout Functionality
+    function handleLogout() {
+        if (!confirm('શું તમે ખરેખર લૉગ આઉટ કરવા માંગો છો? / Are you sure you want to log out?')) {
+            return;
+        }
+
+        try {
+            localStorage.removeItem(AUTH_CONFIG.STORAGE_KEY);
+            localStorage.removeItem(AUTH_CONFIG.TIMESTAMP_KEY);
+            sessionStorage.removeItem(AUTH_CONFIG.STORAGE_KEY);
+        } catch (err) {
+            console.warn('[Auth] Storage clear warning:', err);
+        }
+
+        document.body.classList.remove('authenticated');
+        if (authOverlay) authOverlay.style.display = 'flex';
+
+        if (authPasswordInput) {
+            authPasswordInput.value = '';
+            authPasswordInput.classList.remove('input-error');
+        }
+        if (authError) authError.style.display = 'none';
+
+        if (authPasswordInput) {
+            authPasswordInput.focus();
+        }
+
+        if (window.lucide && lucide.createIcons) {
+            lucide.createIcons();
+        }
+
+        showToast('તમે સફળતાપૂર્વક લૉગ આઉટ થયા છો.', 'info');
+    }
+
+    if (btnSidebarLogout) {
+        btnSidebarLogout.addEventListener('click', handleLogout);
+    }
+    if (btnHeaderLogout) {
+        btnHeaderLogout.addEventListener('click', handleLogout);
+    }
+
+    // Check existing auth state
+    if (checkAuthStatus()) {
+        document.body.classList.add('authenticated');
+        if (authOverlay) authOverlay.style.display = 'none';
+        initApp();
+    } else {
+        document.body.classList.remove('authenticated');
+        if (authOverlay) authOverlay.style.display = 'flex';
+        setTimeout(() => {
+            if (authUsernameInput && authUsernameInput.value.trim().toLowerCase() === 'rahul') {
+                if (authPasswordInput) authPasswordInput.focus();
+            } else if (authUsernameInput) {
+                authUsernameInput.focus();
+            }
+        }, 120);
+    }
+
+    if (window.lucide && lucide.createIcons) {
+        lucide.createIcons();
+    }
+}
+
+// Global initialization
 window.addEventListener('DOMContentLoaded', () => {
-    initApp();
+    initAuth();
 });
 
 function initApp() {
+    if (isAppInitialized) return;
+    isAppInitialized = true;
     // Setup file drag and drop
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', (e) => {

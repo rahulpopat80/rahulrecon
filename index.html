@@ -14,9 +14,74 @@
     <script src="https://unpkg.com/lucide@latest" crossorigin="anonymous"></script>
     
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=3.1.0">
 </head>
 <body>
+    <!-- Non-Skippable Authentication Gate Overlay -->
+    <div id="auth-overlay" class="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+        <div class="auth-card" id="auth-card">
+            <!-- Brand Badge -->
+            <div class="auth-header">
+                <div class="auth-logo-badge">
+                    <i data-lucide="shield-check" style="width: 32px; height: 32px;"></i>
+                </div>
+                <h1 id="auth-title" class="auth-title">બેંક રીકન્સિલેશન સિસ્ટમ</h1>
+                <div class="auth-version">RECONCILE PRO &bull; V3.0</div>
+                <div class="auth-badge">
+                    <i data-lucide="lock" style="width: 12px; height: 12px;"></i> સુરક્ષિત લૉગિન • Non-Skippable Gate
+                </div>
+            </div>
+
+            <!-- Login Form -->
+            <form id="auth-form" class="auth-form" onsubmit="return false;" novalidate>
+                <!-- Error Banner -->
+                <div id="auth-error" class="auth-error-msg" role="alert" style="display: none;">
+                    <i data-lucide="alert-triangle" style="width: 18px; height: 18px; flex-shrink: 0;"></i>
+                    <span id="auth-error-text">ખોટો યુઝર આઈડી અથવા પાસવર્ડ! કૃપા કરીને સાચી વિગતો દાખલ કરો.</span>
+                </div>
+
+                <!-- User ID Field -->
+                <div class="auth-field">
+                    <label for="auth-username" class="auth-label">યુઝર આઈડી (User ID)</label>
+                    <div class="auth-input-wrapper">
+                        <i data-lucide="user" class="auth-input-icon"></i>
+                        <input type="text" id="auth-username" class="auth-input" placeholder="યુઝર આઈડી દાખલ કરો" autocomplete="username" value="Rahul" required>
+                    </div>
+                </div>
+
+                <!-- Password Field -->
+                <div class="auth-field">
+                    <label for="auth-password" class="auth-label">પાસવર્ડ (Password)</label>
+                    <div class="auth-input-wrapper">
+                        <i data-lucide="key-round" class="auth-input-icon"></i>
+                        <input type="password" id="auth-password" class="auth-input" placeholder="પાસવર્ડ દાખલ કરો" autocomplete="current-password" required>
+                        <button type="button" id="btn-toggle-password" class="auth-toggle-pass" title="પાસવર્ડ જુઓ / છુપાવો" tabindex="-1">
+                            <i data-lucide="eye" id="icon-toggle-password" style="width: 16px; height: 16px;"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Remember Me -->
+                <div class="auth-options">
+                    <label class="auth-remember">
+                        <input type="checkbox" id="auth-remember-me" checked>
+                        <span>આ કમ્પ્યુટર પર યાદ રાખો (Remember Me)</span>
+                    </label>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" id="btn-login" class="btn-auth-submit">
+                    <i data-lucide="log-in" style="width: 18px; height: 18px;"></i>
+                    <span>લૉગિન કરો / Login</span>
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                <p>🔐 સુરક્ષિત બેંકિંગ મેળવણી પોર્ટલ &bull; Developed by Rahul Popat</p>
+            </div>
+        </div>
+    </div>
+
     <div class="app-container">
         <!-- Sidebar / Configuration Panel -->
         <aside class="sidebar">
@@ -26,6 +91,20 @@
                     <h1>રીકન્સિલ</h1>
                     <span>RECONCILE PRO (V2.9)</span>
                 </div>
+            </div>
+
+            <!-- Active User Profile & Logout -->
+            <div class="user-session-card">
+                <div class="user-session-avatar">
+                    <i data-lucide="user-check"></i>
+                </div>
+                <div class="user-session-details">
+                    <span class="user-session-name">Rahul Popat</span>
+                    <span class="user-session-badge"><span class="user-status-dot"></span>લૉગિન થયેલ (Online)</span>
+                </div>
+                <button type="button" id="btn-sidebar-logout" class="btn-logout" title="લૉગ આઉટ / Logout">
+                    <i data-lucide="log-out"></i>
+                </button>
             </div>
             
             <nav class="sidebar-nav">
@@ -117,6 +196,10 @@
                     <span id="firebase-status-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">
                         <span class="dot"></span> ☁️ Cloud Synced
                     </span>
+                    <button id="btn-header-logout" class="btn-logout-header" title="લૉગ આઉટ / Logout" style="display: flex; align-items: center; gap: 6px; background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                        <i data-lucide="log-out" style="width: 14px; height: 14px;"></i>
+                        <span>લૉગ આઉટ (Logout)</span>
+                    </button>
                 </div>
             </header>
 
@@ -424,6 +507,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics-compat.js" crossorigin="anonymous"></script>
     
     <!-- App JavaScript Logic -->
-    <script src="app.js?v=3.0.6"></script>
+    <script src="app.js?v=3.1.0"></script>
 </body>
 </html>
